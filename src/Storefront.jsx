@@ -1,14 +1,27 @@
 import { useState, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
-const SHIPPING_COST = 10000;
+// Fix Leaflet Default Icon in React
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
+});
+
+// PENGATURAN TOKO
+const STORE_COORDS = { lat: -7.8309995, lng: 110.3894513 }; // Giwangan, Yogyakarta
+const RATE_PER_KM = 2500;
 
 // 🎟️ DAFTAR KODE VOUCHER (Bisa diganti/ditambah oleh pemilik toko kapan saja)
 const DAFTAR_PROMO = {
   // 'SULTAN10': { tipe: 'persen', nilai: 0.1, min_belanja: 0, pesan: 'Sukses! Diskon 10%' },
   // 'SUPER50': { tipe: 'nominal', nilai: 50000, min_belanja: 200000, pesan: 'Sukses! Potongan Rp50.000' },
   // 'GRATISONGKIR': { tipe: 'ongkir', nilai: 0, min_belanja: 50000, pesan: 'Sukses! Bebas Ongkir' }
-  // 'MERDEKA20': { tipe: 'nominal', nilai: 200000, min_belanja: 0, pesan: 'Selamat! Diskon Rp20.000' }
-
 };
 
 function App() {
@@ -23,6 +36,12 @@ function App() {
   const [promoInput, setPromoInput] = useState('');
   const [appliedPromo, setAppliedPromo] = useState('');
 
+  // State untuk Peta & Ongkir
+  const [deliveryCoords, setDeliveryCoords] = useState(STORE_COORDS);
+  const [distanceKm, setDistanceKm] = useState(0);
+  const [shippingCost, setShippingCost] = useState(0);
+  const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
+
   const categories = ['Semua', 'Sembako', 'Minuman', 'Cemilan', 'Kebutuhan Rumah', 'Lainnya', 'Umum'];
 
   // SINKRONISASI TEMA GELAP (DARK MODE)
@@ -35,7 +54,7 @@ function App() {
     localStorage.setItem('garneta_darkmode', isDarkMode);
   }, [isDarkMode]);
 
-  // MENGAMBIL DATA DARI BACKEND (Gudang XAMPP)
+  // MENGAMBIL DATA DARI BACKEND
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL}/api/products`)
       .then(res => res.json())
@@ -73,11 +92,11 @@ function App() {
     if (subtotal >= promo.min_belanja) {
       if (promo.tipe === 'persen') discountAmount = subtotal * promo.nilai;
       if (promo.tipe === 'nominal') discountAmount = promo.nilai;
-      if (promo.tipe === 'ongkir') shippingDiscount = SHIPPING_COST;
+      if (promo.tipe === 'ongkir') shippingDiscount = shippingCost;
     }
   }
 
-  const finalShipping = SHIPPING_COST - shippingDiscount;
+  const finalShipping = shippingCost - shippingDiscount;
   const grandTotal = subtotal - discountAmount + finalShipping;
 
   // LOGIKA PENCARIAN & FILTER KATEGORI
@@ -90,10 +109,48 @@ function App() {
   // KONSTANTA NOMOR WA ADMIN
   const ADMIN_WA_NUMBER = "6285123871118";
 
+  // KOMPONEN PETA UNTUK MENDETEKSI KLIK
+  function LocationMarker() {
+    useMapEvents({
+      click(e) {
+        setDeliveryCoords(e.latlng);
+        calculateDistance(e.latlng);
+      },
+    });
+    return <Marker position={deliveryCoords}></Marker>;
+  }
+
+  // FUNGSI MENGHITUNG JARAK VIA OSRM API (GRATIS)
+  const calculateDistance = async (targetCoords) => {
+    setIsCalculatingDistance(true);
+    try {
+      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${STORE_COORDS.lng},${STORE_COORDS.lat};${targetCoords.lng},${targetCoords.lat}?overview=false`;
+      const res = await fetch(osrmUrl);
+      const data = await res.json();
+      if (data.routes && data.routes.length > 0) {
+        const distanceMeters = data.routes[0].distance;
+        let km = distanceMeters / 1000;
+        if (km < 1) km = 1; // Minimal 1 Km
+        setDistanceKm(km);
+        setShippingCost(Math.ceil(km) * RATE_PER_KM);
+      }
+    } catch (err) {
+      console.error("OSRM Error:", err);
+      alert("Gagal menghitung jarak otomatis. Pastikan internet lancar.");
+    } finally {
+      setIsCalculatingDistance(false);
+    }
+  };
+
   // MENGIRIM PESANAN KE BACKEND
   const handleCheckout = async () => {
     if (!customerInfo.name || !customerInfo.address || !customerInfo.phone) {
       alert("Harap isi Nama, Alamat, dan No HP!");
+      return;
+    }
+
+    if (distanceKm === 0) {
+      alert("Harap tentukan lokasi pengiriman di Peta untuk menghitung ongkir!");
       return;
     }
 
@@ -120,9 +177,9 @@ function App() {
         });
         waText += `\nSubtotal: ${formatRp(subtotal)}`;
         if (discountAmount > 0) waText += `\nDiskon (${appliedPromo}): -${formatRp(discountAmount)}`;
-        waText += `\nOngkir: ${formatRp(finalShipping)}${shippingDiscount > 0 ? ` (Diskon ${appliedPromo})` : ''}`;
+        waText += `\nOngkir (${distanceKm.toFixed(1)} Km): ${formatRp(finalShipping)}${shippingDiscount > 0 ? ` (Diskon ${appliedPromo})` : ''}`;
         waText += `\n💰 TOTAL BAYAR: ${formatRp(grandTotal)}\n\n`;
-        waText += `📍 DATA PENGIRIMAN:\nNama: ${customerInfo.name}\nNo WA: ${customerInfo.phone}\nAlamat: ${customerInfo.address}\n\nTolong segera diproses ya! Terima kasih!`;
+        waText += `📍 DATA PENGIRIMAN:\nNama: ${customerInfo.name}\nNo WA: ${customerInfo.phone}\nAlamat: ${customerInfo.address}\nKoordinat GPS: https://www.google.com/maps/search/?api=1&query=${deliveryCoords.lat},${deliveryCoords.lng}\n\nTolong segera diproses ya! Terima kasih!`;
 
         const encodedText = encodeURIComponent(waText);
         const waUrl = `https://wa.me/${ADMIN_WA_NUMBER}?text=${encodedText}`;
@@ -273,33 +330,6 @@ function App() {
                 ))}
               </div>
 
-              <div className="cart-summary">
-                <div className="summary-row">
-                  <span>Total Barang</span>
-                  <span>{formatRp(subtotal)}</span>
-                </div>
-                {discountAmount > 0 && (
-                  <div className="summary-row" style={{ color: 'var(--primary)' }}>
-                    <span>Diskon ({appliedPromo})</span>
-                    <span>-{formatRp(discountAmount)}</span>
-                  </div>
-                )}
-                <div className="summary-row">
-                  <span>Ongkos Kirim (Flat)</span>
-                  <span style={{ textDecoration: shippingDiscount > 0 ? 'line-through' : 'none' }}>{formatRp(SHIPPING_COST)}</span>
-                </div>
-                {shippingDiscount > 0 && (
-                  <div className="summary-row" style={{ color: 'var(--primary)' }}>
-                    <span>Diskon Ongkir</span>
-                    <span>-{formatRp(shippingDiscount)}</span>
-                  </div>
-                )}
-                <div className="summary-total">
-                  <span>Total Bayar</span>
-                  <span>{formatRp(grandTotal)}</span>
-                </div>
-              </div>
-
               {/* Promo Input */}
               <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
                 <input
@@ -329,8 +359,8 @@ function App() {
                 </button>
               </div>
 
-              {/* Formulir Pengiriman */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
+              {/* Formulir Pengiriman dengan Peta */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '10px' }}>
                 <input
                   type="text"
                   placeholder="Nama Penerima"
@@ -340,7 +370,7 @@ function App() {
                 />
                 <input
                   type="text"
-                  placeholder="Alamat Lengkap"
+                  placeholder="Alamat Lengkap (Jl, RT/RW, Patokan)"
                   style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-main)' }}
                   value={customerInfo.address}
                   onChange={e => setCustomerInfo({ ...customerInfo, address: e.target.value })}
@@ -354,7 +384,63 @@ function App() {
                 />
               </div>
 
-              <button className="btn btn-primary" onClick={handleCheckout} style={{ marginTop: '24px' }}>
+              {/* Peta Lokasi */}
+              <div style={{ marginTop: '20px', marginBottom: '20px', background: 'var(--card)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                <h4 style={{ marginBottom: '8px' }}>📍 Tandai Titik Peta Pengiriman</h4>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                  Klik di dalam peta untuk menandai rumah Anda. Mesin akan otomatis menghitung jarak dan tarif ongkir (Rp {formatRp(RATE_PER_KM)}/Km).
+                </p>
+                <div style={{ height: '220px', width: '100%', borderRadius: '8px', overflow: 'hidden', border: '2px solid var(--primary)', zIndex: 0, position: 'relative' }}>
+                  <MapContainer center={STORE_COORDS} zoom={13} style={{ height: '100%', width: '100%', zIndex: 0 }}>
+                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OSM' />
+                    <LocationMarker />
+                  </MapContainer>
+                </div>
+                {distanceKm > 0 ? (
+                  <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FEF3C7', padding: '12px', borderRadius: '8px', color: '#92400E' }}>
+                    <div style={{ fontWeight: 'bold' }}>🚗 Jarak: {distanceKm.toFixed(1)} Km</div>
+                    <div style={{ fontWeight: 'bold', fontSize: '16px' }}>Ongkir: {formatRp(shippingCost)}</div>
+                  </div>
+                ) : (
+                  <div style={{ marginTop: '12px', textAlign: 'center', color: '#EF4444', fontWeight: 'bold', fontSize: '14px' }}>
+                    Mohon klik peta di atas untuk memunculkan tarif ongkir!
+                  </div>
+                )}
+                {isCalculatingDistance && <div style={{ fontSize: '12px', color: 'var(--primary)', marginTop: '4px' }}>⏳ Menghitung rute...</div>}
+              </div>
+
+              <div className="cart-summary">
+                <div className="summary-row">
+                  <span>Total Barang</span>
+                  <span>{formatRp(subtotal)}</span>
+                </div>
+                {discountAmount > 0 && (
+                  <div className="summary-row" style={{ color: 'var(--primary)' }}>
+                    <span>Diskon ({appliedPromo})</span>
+                    <span>-{formatRp(discountAmount)}</span>
+                  </div>
+                )}
+                <div className="summary-row">
+                  <span>Ongkos Kirim ({distanceKm.toFixed(1)} Km)</span>
+                  <span style={{ textDecoration: shippingDiscount > 0 ? 'line-through' : 'none' }}>{formatRp(shippingCost)}</span>
+                </div>
+                {shippingDiscount > 0 && (
+                  <div className="summary-row" style={{ color: 'var(--primary)' }}>
+                    <span>Diskon Ongkir</span>
+                    <span>-{formatRp(shippingDiscount)}</span>
+                  </div>
+                )}
+                <div className="summary-total">
+                  <span>Total Bayar</span>
+                  <span>{formatRp(grandTotal)}</span>
+                </div>
+              </div>
+
+              <button 
+                className="btn btn-primary" 
+                onClick={handleCheckout} 
+                style={{ marginTop: '24px', opacity: distanceKm === 0 ? 0.5 : 1, cursor: distanceKm === 0 ? 'not-allowed' : 'pointer' }}
+              >
                 Kirim Pesanan Sekarang
               </button>
             </>
