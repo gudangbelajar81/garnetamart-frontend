@@ -318,7 +318,8 @@ function Dashboard() {
                         </button>
                       )}
                       <button onClick={() => {
-                        const waNum = order.customer_phone.startsWith('0') ? '62' + order.customer_phone.substring(1) : order.customer_phone;
+                        const phone = order.customer_phone || "";
+                        const waNum = phone.startsWith('0') ? '62' + phone.substring(1) : phone;
                         const msg = `Halo Kak ${order.customer_name}, pesanan Sembako Anda di GarnetaMart (Order #${order.id}) telah kami terima. Total tagihan: ${formatRp(order.total_amount)}. Apakah alamat pengirimannya sudah sesuai?`;
                         window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`, '_blank');
                       }} style={{ padding: '6px 12px', background: '#25D366', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
