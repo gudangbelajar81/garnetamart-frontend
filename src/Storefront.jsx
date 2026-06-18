@@ -451,6 +451,15 @@ function App() {
                 </div>
               </div>
 
+              {transportType === 'pickup' && (
+                <div style={{ marginBottom: '20px', padding: '12px', borderRadius: '8px', background: '#FEF3C7', color: '#92400E', fontSize: '12px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: '16px' }}>💪</span>
+                  <div>
+                    <strong>Info Bongkar Muatan:</strong> Untuk pengiriman via Pick-up dengan volume/jumlah sangat banyak, pembeli diharapkan <strong>turut serta membongkar muatan sendiri</strong>. Jika tidak memungkinkan, silakan bernegosiasi biaya jasa bongkar secara langsung dengan supir/kurir di lokasi.
+                  </div>
+                </div>
+              )}
+
               <div className="cart-summary">
                 <div className="summary-row">
                   <span>Total Barang</span>
