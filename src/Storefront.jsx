@@ -83,7 +83,7 @@ function App() {
   // LOGIKA PENCARIAN & FILTER KATEGORI
   const filteredProducts = products.filter(product => {
     const matchCategory = selectedCategory === 'Semua' || product.category === selectedCategory;
-    const matchSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchSearch = (product.name || "").toLowerCase().includes((searchTerm || "").toLowerCase());
     return matchCategory && matchSearch;
   });
 
