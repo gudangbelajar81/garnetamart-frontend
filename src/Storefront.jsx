@@ -88,7 +88,7 @@ function App() {
   });
 
   // KONSTANTA NOMOR WA ADMIN
-  const ADMIN_WA_NUMBER = "6281234567890"; // Ganti dengan nomor asli nanti
+  const ADMIN_WA_NUMBER = "6285123871118";
 
   // MENGIRIM PESANAN KE BACKEND
   const handleCheckout = async () => {
