@@ -179,7 +179,7 @@ function App() {
 
       if (result.success) {
         // RAKIT PESAN WHATSAPP
-        const transportLabel = transportType === 'motor' ? '🛵 Motor (Kapasitas Kecil)' : '🛻 Mobil Pick-up (Partai Besar)';
+        const transportLabel = transportType === 'motor' ? '🛵 Motor / Obrok (Kapasitas Sedang)' : '🛻 Mobil Pick-up (Partai Besar)';
         
         let waText = `Halo GarnetaMart! 👋\nSaya ingin memproses pesanan saya (ID: #${result.order_id}):\n\n📦 DAFTAR BELANJA:\n`;
         cartItems.forEach(c => {
@@ -403,8 +403,8 @@ function App() {
                     <input type="radio" name="transport" value="motor" checked={transportType === 'motor'} onChange={() => setTransportType('motor')} style={{ display: 'none' }} />
                     <span style={{ fontSize: '24px' }}>🛵</span>
                     <div>
-                      <div style={{ fontWeight: 'bold' }}>Motor Reguler</div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Maks 3 Sak/Karton</div>
+                      <div style={{ fontWeight: 'bold' }}>Motor / Obrok</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Kapasitas Sedang</div>
                     </div>
                   </label>
                   <label style={{ flex: 1, padding: '12px', border: transportType === 'pickup' ? '2px solid var(--primary)' : '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', background: transportType === 'pickup' ? 'var(--light)' : 'transparent', color: transportType === 'pickup' ? 'var(--primary)' : 'var(--text-main)', transition: 'all 0.2s' }}>
