@@ -15,7 +15,6 @@ L.Icon.Default.mergeOptions({
 
 // PENGATURAN TOKO
 const STORE_COORDS = { lat: -7.8309995, lng: 110.3894513 }; // Giwangan, Yogyakarta
-const RATE_PER_KM = 2500;
 
 // 🎟️ DAFTAR KODE VOUCHER (Bisa diganti/ditambah oleh pemilik toko kapan saja)
 const DAFTAR_PROMO = {
@@ -52,8 +51,11 @@ function App() {
   const [distanceKm, setDistanceKm] = useState(0);
   const [shippingCost, setShippingCost] = useState(0);
   const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
+  const [transportType, setTransportType] = useState('motor'); // 'motor' atau 'pickup'
 
   const categories = ['Semua', 'Sembako', 'Minuman', 'Cemilan', 'Kebutuhan Rumah', 'Lainnya', 'Umum'];
+
+  const ratePerKm = transportType === 'motor' ? 2500 : 5000;
 
   // SINKRONISASI TEMA GELAP (DARK MODE)
   useEffect(() => {
@@ -77,6 +79,13 @@ function App() {
       .catch(err => console.error("Gagal nyambung ke Backend:", err))
       .finally(() => setIsLoading(false));
   }, []);
+
+  // Update ongkir otomatis jika jarak atau jenis armada berubah
+  useEffect(() => {
+    if (distanceKm > 0) {
+      setShippingCost(Math.ceil(distanceKm) * ratePerKm);
+    }
+  }, [distanceKm, transportType, ratePerKm]);
 
   const formatRp = (num) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(num);
 
@@ -132,7 +141,6 @@ function App() {
         let km = distanceMeters / 1000;
         if (km < 1) km = 1; // Minimal 1 Km
         setDistanceKm(km);
-        setShippingCost(Math.ceil(km) * RATE_PER_KM);
       }
     } catch (err) {
       console.error("OSRM Error:", err);
@@ -171,6 +179,8 @@ function App() {
 
       if (result.success) {
         // RAKIT PESAN WHATSAPP
+        const transportLabel = transportType === 'motor' ? '🛵 Motor (Kapasitas Kecil)' : '🛻 Mobil Pick-up (Partai Besar)';
+        
         let waText = `Halo GarnetaMart! 👋\nSaya ingin memproses pesanan saya (ID: #${result.order_id}):\n\n📦 DAFTAR BELANJA:\n`;
         cartItems.forEach(c => {
           waText += `- ${c.qty}x ${c.item.name} (${formatRp(c.item.price)})\n`;
@@ -179,7 +189,7 @@ function App() {
         if (discountAmount > 0) waText += `\nDiskon (${appliedPromo}): -${formatRp(discountAmount)}`;
         waText += `\nOngkir (${distanceKm.toFixed(1)} Km): ${formatRp(finalShipping)}${shippingDiscount > 0 ? ` (Diskon ${appliedPromo})` : ''}`;
         waText += `\n💰 TOTAL BAYAR: ${formatRp(grandTotal)}\n\n`;
-        waText += `📍 DATA PENGIRIMAN:\nNama: ${customerInfo.name}\nNo WA: ${customerInfo.phone}\nAlamat: ${customerInfo.address}\nKoordinat GPS: https://www.google.com/maps/search/?api=1&query=${deliveryCoords.lat},${deliveryCoords.lng}\n\nTolong segera diproses ya! Terima kasih!`;
+        waText += `📍 DATA PENGIRIMAN:\nNama: ${customerInfo.name}\nNo WA: ${customerInfo.phone}\nAlamat: ${customerInfo.address}\nArmada: ${transportLabel}\nKoordinat GPS: https://www.google.com/maps/search/?api=1&query=${deliveryCoords.lat},${deliveryCoords.lng}\n\nTolong segera diproses ya! Terima kasih!`;
 
         const encodedText = encodeURIComponent(waText);
         const waUrl = `https://wa.me/${ADMIN_WA_NUMBER}?text=${encodedText}`;
@@ -191,6 +201,7 @@ function App() {
         setCustomerInfo({ name: '', address: '', phone: '' });
         setAppliedPromo('');
         setPromoInput('');
+        setDistanceKm(0);
         setIsModalOpen(false);
       } else {
         alert("Gagal: " + result.message);
@@ -384,11 +395,34 @@ function App() {
                 />
               </div>
 
+              {/* Opsi Kendaraan */}
+              <div style={{ marginTop: '20px', padding: '16px', borderRadius: '12px', border: '1px solid var(--primary)', background: 'var(--card)' }}>
+                <h4 style={{ marginBottom: '12px' }}>🚚 Pilih Armada Pengiriman</h4>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  <label style={{ flex: 1, padding: '12px', border: transportType === 'motor' ? '2px solid var(--primary)' : '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', background: transportType === 'motor' ? 'var(--light)' : 'transparent', color: transportType === 'motor' ? 'var(--primary)' : 'var(--text-main)', transition: 'all 0.2s' }}>
+                    <input type="radio" name="transport" value="motor" checked={transportType === 'motor'} onChange={() => setTransportType('motor')} style={{ display: 'none' }} />
+                    <span style={{ fontSize: '24px' }}>🛵</span>
+                    <div>
+                      <div style={{ fontWeight: 'bold' }}>Motor Reguler</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Maks 3 Sak/Karton</div>
+                    </div>
+                  </label>
+                  <label style={{ flex: 1, padding: '12px', border: transportType === 'pickup' ? '2px solid var(--primary)' : '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', background: transportType === 'pickup' ? 'var(--light)' : 'transparent', color: transportType === 'pickup' ? 'var(--primary)' : 'var(--text-main)', transition: 'all 0.2s' }}>
+                    <input type="radio" name="transport" value="pickup" checked={transportType === 'pickup'} onChange={() => setTransportType('pickup')} style={{ display: 'none' }} />
+                    <span style={{ fontSize: '24px' }}>🛻</span>
+                    <div>
+                      <div style={{ fontWeight: 'bold' }}>Mobil Pick-up</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Partai Besar</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
               {/* Peta Lokasi */}
-              <div style={{ marginTop: '20px', marginBottom: '20px', background: 'var(--card)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+              <div style={{ marginTop: '20px', marginBottom: '10px', background: 'var(--card)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
                 <h4 style={{ marginBottom: '8px' }}>📍 Tandai Titik Peta Pengiriman</h4>
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                  Klik di dalam peta untuk menandai rumah Anda. Mesin akan otomatis menghitung jarak dan tarif ongkir (Rp {formatRp(RATE_PER_KM)}/Km).
+                  Klik peta untuk menandai rumah Anda. Mesin akan menghitung jarak otomatis (Tarif saat ini: Rp {formatRp(ratePerKm)}/Km).
                 </p>
                 <div style={{ height: '220px', width: '100%', borderRadius: '8px', overflow: 'hidden', border: '2px solid var(--primary)', zIndex: 0, position: 'relative' }}>
                   <MapContainer center={STORE_COORDS} zoom={13} style={{ height: '100%', width: '100%', zIndex: 0 }}>
@@ -398,7 +432,7 @@ function App() {
                 </div>
                 {distanceKm > 0 ? (
                   <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FEF3C7', padding: '12px', borderRadius: '8px', color: '#92400E' }}>
-                    <div style={{ fontWeight: 'bold' }}>🚗 Jarak: {distanceKm.toFixed(1)} Km</div>
+                    <div style={{ fontWeight: 'bold' }}>Jarak: {distanceKm.toFixed(1)} Km</div>
                     <div style={{ fontWeight: 'bold', fontSize: '16px' }}>Ongkir: {formatRp(shippingCost)}</div>
                   </div>
                 ) : (
@@ -407,6 +441,14 @@ function App() {
                   </div>
                 )}
                 {isCalculatingDistance && <div style={{ fontSize: '12px', color: 'var(--primary)', marginTop: '4px' }}>⏳ Menghitung rute...</div>}
+              </div>
+
+              {/* Peringatan Ongkir */}
+              <div style={{ marginBottom: '20px', padding: '12px', borderRadius: '8px', background: '#FEE2E2', color: '#991B1B', fontSize: '12px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '16px' }}>⚠️</span>
+                <div>
+                  <strong>Catatan Penting:</strong> Pilihan armada di atas adalah estimasi. Jika armada yang Anda pilih tidak muat untuk membawa barang belanjaan Anda, ongkos kirim akan <strong>disesuaikan kembali</strong> oleh Admin kami melalui WhatsApp.
+                </div>
               </div>
 
               <div className="cart-summary">
