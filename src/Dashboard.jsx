@@ -204,7 +204,7 @@ function Dashboard() {
 
   const getStatusBadge = (status) => {
     const s = status || 'Baru';
-    if (s === 'Baru') return <span style={{ padding: '4px 10px', background: '#FEF08A', color: '#854D0E', borderRadius: '99px', fontSize: '13px', fontWeight: 'bold' }}>Baru</span>;
+    if (s === 'Baru' || s === 'Menunggu Konfirmasi') return <span style={{ padding: '4px 10px', background: '#FEF08A', color: '#854D0E', borderRadius: '99px', fontSize: '13px', fontWeight: 'bold' }}>{s}</span>;
     if (s === 'Dikirim') return <span style={{ padding: '4px 10px', background: '#BFDBFE', color: '#1E40AF', borderRadius: '99px', fontSize: '13px', fontWeight: 'bold' }}>Dikirim</span>;
     if (s === 'Selesai') return <span style={{ padding: '4px 10px', background: '#BBF7D0', color: '#166534', borderRadius: '99px', fontSize: '13px', fontWeight: 'bold' }}>Selesai</span>;
     return <span>{s}</span>;
@@ -307,7 +307,7 @@ function Dashboard() {
                     <td style={{ padding: '16px' }}>{getStatusBadge(order.status)}</td>
                     <td style={{ padding: '16px', color: 'var(--primary)', fontWeight: 'bold' }}>{formatRp(order.total_amount)}</td>
                     <td style={{ padding: '16px', textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                      {(order.status === 'Baru' || !order.status) && (
+                      {(order.status === 'Baru' || order.status === 'Menunggu Konfirmasi' || !order.status) && (
                         <button onClick={() => handleUpdateOrderStatus(order.id, 'Dikirim')} style={{ padding: '6px 12px', background: '#3B82F6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
                           🚚 Kirim Barang
                         </button>
