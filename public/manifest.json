@@ -1,0 +1,17 @@
+{
+  "name": "GarnetaMart",
+  "short_name": "GarnetaMart",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#10B981",
+  "description": "Grosir Cepat, Tiba Sekejap. Aplikasi E-Commerce GarnetaMart.",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
