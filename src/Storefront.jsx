@@ -24,6 +24,17 @@ const DAFTAR_PROMO = {
   // 'GRATISONGKIR': { tipe: 'ongkir', nilai: 0, min_belanja: 50000, pesan: 'Sukses! Bebas Ongkir' }
 };
 
+// KOMPONEN PETA UNTUK MENDETEKSI KLIK (Dipindah ke luar App untuk mencegah infinite render)
+function LocationMarker({ position, setPosition, onPositionChange }) {
+  useMapEvents({
+    click(e) {
+      setPosition(e.latlng);
+      onPositionChange(e.latlng);
+    },
+  });
+  return <Marker position={position}></Marker>;
+}
+
 function App() {
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState({});
@@ -108,17 +119,6 @@ function App() {
 
   // KONSTANTA NOMOR WA ADMIN
   const ADMIN_WA_NUMBER = "6285123871118";
-
-  // KOMPONEN PETA UNTUK MENDETEKSI KLIK
-  function LocationMarker() {
-    useMapEvents({
-      click(e) {
-        setDeliveryCoords(e.latlng);
-        calculateDistance(e.latlng);
-      },
-    });
-    return <Marker position={deliveryCoords}></Marker>;
-  }
 
   // FUNGSI MENGHITUNG JARAK VIA OSRM API (GRATIS)
   const calculateDistance = async (targetCoords) => {
@@ -393,7 +393,7 @@ function App() {
                 <div style={{ height: '220px', width: '100%', borderRadius: '8px', overflow: 'hidden', border: '2px solid var(--primary)', zIndex: 0, position: 'relative' }}>
                   <MapContainer center={STORE_COORDS} zoom={13} style={{ height: '100%', width: '100%', zIndex: 0 }}>
                     <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OSM' />
-                    <LocationMarker />
+                    <LocationMarker position={deliveryCoords} setPosition={setDeliveryCoords} onPositionChange={calculateDistance} />
                   </MapContainer>
                 </div>
                 {distanceKm > 0 ? (
