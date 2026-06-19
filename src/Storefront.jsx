@@ -278,8 +278,8 @@ function App() {
             <div key={product.id} className="product-card">
               <div>
                 {product.image_url && product.image_url.startsWith('/uploads/') ? (
-                  <div className="product-image-container" style={{ width: '100%', height: '180px', borderRadius: '12px', overflow: 'hidden', marginBottom: '16px' }}>
-                    <img src={`${import.meta.env.VITE_API_URL}${product.image_url}`} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div className="product-image-container" style={{ width: '100%', aspectRatio: '1 / 1', backgroundColor: '#ffffff', borderRadius: '12px', overflow: 'hidden', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img src={`${import.meta.env.VITE_API_URL}${product.image_url}`} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                   </div>
                 ) : (
                   <div className="product-icon">{product.image_url || '📦'}</div>
