@@ -547,14 +547,13 @@ function Dashboard() {
               </div>
               <div>
                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px' }}>
-                  File Gambar {editingId && "(Kosongkan jika tidak ingin mengubah)"}
+                  File Gambar (Bisa Dikosongkan)
                 </label>
                 <input 
                   type="file" 
                   accept="image/png, image/jpeg, image/jpg, image/webp" 
                   onChange={e => setImageFile(e.target.files[0])} 
                   style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', background: '#f9f9f9' }} 
-                  required={!editingId} // Wajib isi gambar jika produk baru
                 />
               </div>
               <button type="submit" className="btn btn-primary" style={{ marginTop: '16px' }}>
