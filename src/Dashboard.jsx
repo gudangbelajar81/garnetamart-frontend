@@ -901,12 +901,30 @@ function Dashboard() {
                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px' }}>
                   File Gambar (Bisa Dikosongkan)
                 </label>
-                <input 
-                  type="file" 
-                  accept="image/png, image/jpeg, image/jpg, image/webp" 
-                  onChange={e => setImageFile(e.target.files[0])} 
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', background: '#f9f9f9' }} 
-                />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#F3F4F6', border: '1px dashed #9CA3AF', borderRadius: '8px', padding: '16px', cursor: 'pointer' }}>
+                    <span style={{ fontSize: '24px', marginBottom: '8px' }}>🖼️</span>
+                    <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#4B5563' }}>Pilih dari Galeri</span>
+                    <input 
+                      type="file" 
+                      accept="image/png, image/jpeg, image/jpg, image/webp" 
+                      onChange={e => setImageFile(e.target.files[0])} 
+                      style={{ display: 'none' }} 
+                    />
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#EFF6FF', border: '1px dashed #60A5FA', borderRadius: '8px', padding: '16px', cursor: 'pointer' }}>
+                    <span style={{ fontSize: '24px', marginBottom: '8px' }}>📸</span>
+                    <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#1D4ED8' }}>Foto Sekarang</span>
+                    <input 
+                      type="file" 
+                      accept="image/png, image/jpeg, image/jpg, image/webp" 
+                      capture="environment"
+                      onChange={e => setImageFile(e.target.files[0])} 
+                      style={{ display: 'none' }} 
+                    />
+                  </label>
+                </div>
+                {imageFile && <p style={{ fontSize: '12px', color: '#10B981', margin: 0 }}>✅ 1 Foto siap diunggah ({imageFile.name})</p>}
               </div>
               <button type="submit" className="btn btn-primary" style={{ marginTop: '16px' }}>
                 Simpan Barang

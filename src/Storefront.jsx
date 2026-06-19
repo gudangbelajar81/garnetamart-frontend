@@ -418,7 +418,13 @@ function App() {
                     <img 
                       src={`${import.meta.env.VITE_API_URL}${product.image_url}`} 
                       alt={product.name} 
-                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                      style={{ 
+                        width: '100%', 
+                        height: '100%', 
+                        objectFit: 'contain', 
+                        padding: '8px', 
+                        filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.08)) contrast(1.1) brightness(1.05)' 
+                      }}
                       onError={(e) => {
                         e.target.style.display = 'none';
                         if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
