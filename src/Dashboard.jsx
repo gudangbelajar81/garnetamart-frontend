@@ -367,6 +367,30 @@ function Dashboard() {
   const formatRp = (num) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(num);
 
   // LOGIKA PENGOLAHAN DATA GRAFIK OMZET
+  const handleUploadQris = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/upload-qris`, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Gambar QRIS berhasil diperbarui!');
+        window.location.reload();
+      } else {
+        alert('Gagal mengupload QRIS');
+      }
+    } catch (err) {
+      alert('Terjadi kesalahan jaringan saat upload QRIS');
+    }
+  };
+
   const processChartData = () => {
     const dataMap = {};
     orders.forEach(order => {
