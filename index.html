@@ -6,12 +6,23 @@
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#10B981" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>GarnetaMart</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
     <script>
+      // Auto-reload jika ada error gagal memuat file javascript terbaru (biasanya karena update Vercel)
+      window.addEventListener('error', function(e) {
+        if (e.message && (e.message.includes('Failed to fetch dynamically imported module') || e.message.includes('Importing a module script failed'))) {
+          console.warn('Terdeteksi versi baru, memuat ulang halaman...');
+          window.location.reload(true);
+        }
+      });
+
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js').then(registration => {
