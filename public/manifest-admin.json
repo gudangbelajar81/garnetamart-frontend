@@ -1,0 +1,17 @@
+{
+  "name": "Admin Toko",
+  "short_name": "Admin Toko",
+  "start_url": "/login",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#8B5CF6",
+  "description": "Dasbor Admin GarnetaMart.",
+  "icons": [
+    {
+      "src": "/icon-admin.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "Portal Kurir",
+  "short_name": "Portal Kurir",
+  "start_url": "/kurir",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3B82F6",
+  "description": "Dasbor Kurir GarnetaMart.",
+  "icons": [
+    {
+      "src": "/icon-kurir.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

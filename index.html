@@ -10,6 +10,27 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>GarnetaMart</title>
+    <script>
+      // Ubah ikon, manifest, dan judul secara dinamis berdasarkan URL
+      (function() {
+        var path = window.location.pathname;
+        var iconLink = document.querySelector('link[rel="icon"]');
+        var manifestLink = document.querySelector('link[rel="manifest"]');
+        var themeColor = document.querySelector('meta[name="theme-color"]');
+
+        if (path.startsWith('/dashboard') || path.startsWith('/login')) {
+          document.title = "Admin Toko";
+          iconLink.href = "/icon-admin.svg";
+          manifestLink.href = "/manifest-admin.json";
+          themeColor.content = "#8B5CF6";
+        } else if (path.startsWith('/kurir')) {
+          document.title = "Portal Kurir";
+          iconLink.href = "/icon-kurir.svg";
+          manifestLink.href = "/manifest-kurir.json";
+          themeColor.content = "#3B82F6";
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
