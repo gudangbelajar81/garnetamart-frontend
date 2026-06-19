@@ -47,7 +47,8 @@ function App() {
   const [promoInput, setPromoInput] = useState('');
   const [appliedPromo, setAppliedPromo] = useState('');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [showPromoPopup, setShowPromoPopup] = useState(true);
+  const [showPromoPopup, setShowPromoPopup] = useState(false); // Default false, di set oleh API
+  const [promoBannerUrl, setPromoBannerUrl] = useState('/promo_banner.png'); // Default fallback
 
   // Status User
   const [loggedInCustomer, setLoggedInCustomer] = useState(null);
@@ -95,15 +96,28 @@ function App() {
 
   // MENGAMBIL DATA DARI BACKEND
   useEffect(() => {
+    // Fetch Products
     fetch(`${import.meta.env.VITE_API_URL}/api/products`)
       .then(res => res.json())
       .then(result => {
-        if (result.success) {
-          setProducts(result.data);
-        }
+        if (result.success) setProducts(result.data);
       })
       .catch(err => console.error("Gagal nyambung ke Backend:", err))
       .finally(() => setIsLoading(false));
+
+    // Fetch Banner Settings
+    fetch(`${import.meta.env.VITE_API_URL}/api/settings`)
+      .then(res => res.json())
+      .then(result => {
+        if(result.success && result.data) {
+          const isActive = result.data.promo_banner_active === '1' || result.data.promo_banner_active === 'true';
+          setShowPromoPopup(isActive);
+          if (result.data.promo_banner_url) {
+            setPromoBannerUrl(result.data.promo_banner_url);
+          }
+        }
+      })
+      .catch(err => console.error(err));
   }, []);
 
   // Update ongkir otomatis jika jarak atau jenis armada berubah
@@ -290,7 +304,7 @@ function App() {
       </nav>
 
       {/* PROMO POPUP MODAL */}
-      {showPromoPopup && (
+      {showPromoPopup && promoBannerUrl && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: '20px' }}>
           <div style={{ position: 'relative', width: '100%', maxWidth: '400px', animation: 'fadeInUp 0.3s ease-out' }}>
             <button 
@@ -299,7 +313,7 @@ function App() {
             >
               &times;
             </button>
-            <img src="/promo_banner.png" alt="Promo Spesial" style={{ width: '100%', borderRadius: '16px', objectFit: 'cover', display: 'block', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }} />
+            <img src={promoBannerUrl.startsWith('http') ? promoBannerUrl : `${import.meta.env.VITE_API_URL}${promoBannerUrl}`} alt="Promo Spesial" style={{ width: '100%', borderRadius: '16px', objectFit: 'cover', display: 'block', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }} />
           </div>
         </div>
       )}

@@ -19,6 +19,12 @@ function Dashboard() {
   const [formData, setFormData] = useState({ name: '', price: '', stock: '', category: 'Umum', old_image_url: '' });
   const [imageFile, setImageFile] = useState(null);
 
+  // State untuk Pengaturan Toko (Banner)
+  const [promoActive, setPromoActive] = useState(true);
+  const [promoBannerUrl, setPromoBannerUrl] = useState('');
+  const [bannerFile, setBannerFile] = useState(null);
+  const [isSavingBanner, setIsSavingBanner] = useState(false);
+
   // Referensi untuk mendeteksi pesanan baru tanpa re-render
   const prevOrderCount = useRef(-1);
 
@@ -30,6 +36,7 @@ function Dashboard() {
     fetchOrders();
     fetchProducts();
     fetchCouriers();
+    fetchSettings();
 
     // Radar pemantau 10 detik
     const interval = setInterval(() => {
@@ -38,6 +45,45 @@ function Dashboard() {
 
     return () => clearInterval(interval);
   }, []);
+
+  const fetchSettings = () => {
+    fetch(`${import.meta.env.VITE_API_URL}/api/settings`)
+      .then(res => res.json())
+      .then(result => {
+        if(result.success && result.data) {
+          setPromoActive(result.data.promo_banner_active === '1' || result.data.promo_banner_active === 'true');
+          setPromoBannerUrl(result.data.promo_banner_url || '');
+        }
+      })
+      .catch(err => console.error(err));
+  };
+
+  const handleSaveBanner = async (e) => {
+    e.preventDefault();
+    setIsSavingBanner(true);
+    const formData = new FormData();
+    formData.append('promo_banner_active', promoActive ? '1' : '0');
+    if (bannerFile) formData.append('image', bannerFile);
+
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/settings/banner`, {
+        method: 'POST',
+        body: formData
+      });
+      const result = await res.json();
+      if(result.success) {
+        alert("Pengaturan Banner berhasil disimpan!");
+        setBannerFile(null);
+        fetchSettings();
+      } else {
+        alert("Gagal: " + result.message);
+      }
+    } catch(err) {
+      alert("Terjadi kesalahan koneksi saat menyimpan banner.");
+    } finally {
+      setIsSavingBanner(false);
+    }
+  };
 
   const fetchOrders = () => {
     fetch(`${import.meta.env.VITE_API_URL}/api/orders`)
@@ -329,6 +375,12 @@ function Dashboard() {
             >
               🛵 Manajemen Kurir
             </button>
+            <button 
+              onClick={() => setActiveTab('settings')}
+              style={{ padding: '12px 24px', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', background: activeTab === 'settings' ? 'var(--primary)' : 'white', color: activeTab === 'settings' ? 'white' : 'var(--dark)', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}
+            >
+              ⚙️ Pengaturan Toko
+            </button>
           </>
         )}
       </div>
@@ -509,6 +561,62 @@ function Dashboard() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAMPILAN TAB PENGATURAN TOKO (BANNER) */}
+      {activeTab === 'settings' && (
+        <div style={{ background: 'white', borderRadius: '24px', padding: '30px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}>
+          <h2 style={{ marginBottom: '20px' }}>⚙️ Pengaturan Toko</h2>
+          
+          <div style={{ maxWidth: '600px', background: '#F9FAFB', padding: '24px', borderRadius: '16px', border: '1px solid var(--border)' }}>
+            <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Manajemen Banner Pop-up Promo</h3>
+            
+            <form onSubmit={handleSaveBanner} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              
+              {/* Toggle Aktif/Nonaktif */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                <div>
+                  <strong style={{ display: 'block', marginBottom: '4px' }}>Status Banner</strong>
+                  <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Tampilkan Pop-up promo saat pembeli masuk ke toko.</span>
+                </div>
+                <label style={{ position: 'relative', display: 'inline-block', width: '50px', height: '28px' }}>
+                  <input type="checkbox" checked={promoActive} onChange={(e) => setPromoActive(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
+                  <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: promoActive ? '#10B981' : '#ccc', transition: '.4s', borderRadius: '34px' }}>
+                    <span style={{ position: 'absolute', content: '""', height: '20px', width: '20px', left: promoActive ? '26px' : '4px', bottom: '4px', backgroundColor: 'white', transition: '.4s', borderRadius: '50%' }}></span>
+                  </span>
+                </label>
+              </div>
+
+              {/* Preview Gambar Banner Saat Ini */}
+              <div>
+                <strong style={{ display: 'block', marginBottom: '8px' }}>Gambar Banner Saat Ini</strong>
+                <div style={{ background: '#E5E7EB', width: '100%', height: '200px', borderRadius: '12px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {promoBannerUrl ? (
+                    <img src={promoBannerUrl.startsWith('http') ? promoBannerUrl : `${import.meta.env.VITE_API_URL}${promoBannerUrl}`} alt="Banner" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  ) : (
+                    <span style={{ color: '#9CA3AF' }}>Belum ada banner</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Unggah Gambar Baru */}
+              <div>
+                <strong style={{ display: 'block', marginBottom: '8px' }}>Ganti Gambar Banner Baru</strong>
+                <input 
+                  type="file" 
+                  accept="image/png, image/jpeg, image/jpg, image/webp" 
+                  onChange={e => setBannerFile(e.target.files[0])} 
+                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', background: 'white' }} 
+                />
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>Format: JPG, PNG, WEBP. Saran rasio: Lebar (landscape) atau Kotak.</p>
+              </div>
+
+              <button type="submit" className="btn btn-primary" disabled={isSavingBanner}>
+                {isSavingBanner ? 'Menyimpan...' : '💾 Simpan Pengaturan Banner'}
+              </button>
+            </form>
           </div>
         </div>
       )}
