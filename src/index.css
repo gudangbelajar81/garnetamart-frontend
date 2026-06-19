@@ -133,11 +133,11 @@ body.dark-theme .cart-summary {
 
 .product-card {
   background: var(--card);
-  border-radius: var(--radius);
-  padding: 24px;
+  border-radius: 8px; /* Sudut lebih tegas ala Shopee */
+  padding: 12px; /* Padding lebih kecil */
   border: 1px solid var(--border);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.02);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* Shadow halus */
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -389,9 +389,50 @@ body.dark-theme .cart-summary {
 @media (max-width: 768px) {
   .hero h1 { font-size: 40px; }
   .floating-cart { bottom: 20px; right: 20px; }
-  .navbar { padding: 16px 20px; }
+  .navbar { padding: 12px; }
+  
+  /* Paksakan 2 kolom untuk produk di layar HP */
+  .product-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  
+  .product-name {
+    font-size: 14px;
+    line-height: 1.4;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  
+  .product-price {
+    font-size: 16px;
+  }
+
+  .btn {
+    padding: 10px;
+    font-size: 14px;
+  }
 }
 
+/* Scrollbar dihilangkan untuk kategori yang melimpah (Kategori Pintar Lama) */
 .smart-categories::-webkit-scrollbar {
+  display: none;
+}
+
+/* Grid Kategori Shopee */
+.shopee-categories {
+  display: grid;
+  grid-template-rows: repeat(2, auto);
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(70px, 1fr);
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;  /* IE and Edge */
+}
+.shopee-categories::-webkit-scrollbar {
   display: none;
 }

@@ -241,12 +241,24 @@ function App() {
 
   return (
     <>
-      <nav className="navbar">
-        <div className="brand">Garneta<span>Mart</span></div>
+      <nav className="navbar" style={{ gap: '16px', flexWrap: 'wrap' }}>
+        <div className="brand" style={{ fontSize: '24px' }}>Garneta<span>Mart</span></div>
+        
+        {/* KOLOM PENCARIAN DI NAVBAR */}
+        <div style={{ flex: 1, minWidth: '200px' }}>
+          <input
+            type="text"
+            placeholder="🔍 Cari produk..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ width: '100%', padding: '10px 16px', borderRadius: '99px', border: '1px solid var(--border)', fontSize: '14px', outline: 'none', background: 'var(--light)', color: 'var(--text-main)' }}
+          />
+        </div>
+
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
-            style={{ background: 'var(--card)', border: '1px solid var(--border)', fontSize: '20px', cursor: 'pointer', padding: '8px 12px', borderRadius: '99px', display: 'flex', alignItems: 'center', color: 'var(--text-main)' }}
+            style={{ background: 'var(--card)', border: '1px solid var(--border)', fontSize: '18px', cursor: 'pointer', padding: '8px 12px', borderRadius: '99px', display: 'flex', alignItems: 'center', color: 'var(--text-main)' }}
             title="Toggle Dark Mode"
           >
             {isDarkMode ? '☀️' : '🌙'}
@@ -276,46 +288,33 @@ function App() {
         </div>
       </nav>
 
-      <header className="hero">
-        <h1>Grosir Cepat, Tiba Sekejap.</h1>
-        <p>Solusi belanja grosir untuk Cafe, Rumah Makan, dan Ibu Rumah Tangga. Pilih barang Anda, kami antar hari ini juga.</p>
+      <header style={{ padding: '0', marginBottom: '20px' }}>
+        <img src="/promo_banner.png" alt="Promo Spesial" style={{ width: '100%', objectFit: 'cover', display: 'block' }} />
       </header>
 
-      <main className="container">
-        {/* BAR PENCARIAN & KATEGORI */}
-        <div style={{ marginBottom: '30px', background: 'var(--card)', padding: '20px', borderRadius: '16px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', border: '1px solid var(--border)' }}>
-          <input
-            type="text"
-            placeholder="🔍 Cari nama barang di sini (Misal: Roti)..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '2px solid var(--primary)', fontSize: '16px', marginBottom: '16px', outline: 'none', background: 'transparent', color: 'var(--text-main)' }}
-          />
-          {/* ETALASE KATEGORI PINTAR */}
-          <div className="smart-categories" style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '10px', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
+      <main className="container" style={{ padding: '0 16px' }}>
+        {/* ETALASE KATEGORI PINTAR */}
+        <div style={{ marginBottom: '20px', background: 'var(--card)', padding: '16px', borderRadius: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+          <div className="shopee-categories">
             {smartCategories.map(cat => (
               <button
                 key={cat.name}
                 onClick={() => setSelectedCategory(cat.name)}
+                className="category-btn"
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  minWidth: '90px',
-                  padding: '12px 8px',
-                  borderRadius: '20px',
-                  border: selectedCategory === cat.name ? '2px solid var(--primary)' : '1px solid var(--border)',
-                  background: selectedCategory === cat.name ? 'var(--card)' : 'transparent',
+                  background: 'transparent',
+                  border: 'none',
                   cursor: 'pointer',
-                  transition: '0.2s',
-                  boxShadow: selectedCategory === cat.name ? '0 8px 16px rgba(16,185,129,0.15)' : 'none',
-                  transform: selectedCategory === cat.name ? 'translateY(-2px)' : 'none'
+                  opacity: selectedCategory === cat.name ? 1 : 0.7,
                 }}
               >
-                <div style={{ background: selectedCategory === cat.name ? '#D1FAE5' : 'var(--card)', padding: '12px', borderRadius: '50%', marginBottom: '8px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '50px', height: '50px' }}>
-                  <span style={{ fontSize: '24px' }}>{cat.icon}</span>
+                <div style={{ background: selectedCategory === cat.name ? '#D1FAE5' : 'var(--light)', border: selectedCategory === cat.name ? '2px solid var(--primary)' : '1px solid var(--border)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', marginBottom: '6px', transition: '0.2s' }}>
+                  <span style={{ fontSize: '20px' }}>{cat.icon}</span>
                 </div>
-                <span style={{ fontSize: '11px', fontWeight: 'bold', color: selectedCategory === cat.name ? 'var(--primary)' : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: '10px', color: selectedCategory === cat.name ? 'var(--primary)' : 'var(--text-main)', textAlign: 'center', lineHeight: '1.2' }}>
                   {cat.name}
                 </span>
               </button>
