@@ -745,6 +745,7 @@ function Dashboard() {
                 <select required value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', background: 'white' }}>
                   <option value="Umum">Umum</option>
                   <option value="Sembako">Sembako</option>
+                  <option value="Grosir / Partai Besar">Grosir / Partai Besar</option>
                   <option value="Minuman">Minuman</option>
                   <option value="Cemilan">Cemilan</option>
                   <option value="Kebutuhan Rumah">Kebutuhan Rumah</option>

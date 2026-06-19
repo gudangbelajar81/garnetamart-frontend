@@ -65,11 +65,12 @@ function App() {
     { name: 'Semua', icon: '🏪' },
     { name: 'Sedang Laris', icon: '🔥' },
     { name: 'Sembako', icon: '🍚' },
+    { name: 'Grosir / Partai Besar', icon: '📦' },
     { name: 'Sayur & Buah', icon: '🥬' },
     { name: 'Snack & Minum', icon: '🥤' },
     { name: 'Bumbu Dapur', icon: '🧂' },
     { name: 'Kebersihan', icon: '🧼' },
-    { name: 'Lainnya', icon: '📦' }
+    { name: 'Lainnya', icon: '🛒' }
   ];
 
   const ratePerKm = transportType === 'motor' ? 2500 : 5000;
