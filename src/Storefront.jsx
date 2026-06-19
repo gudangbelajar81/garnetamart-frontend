@@ -63,7 +63,6 @@ function App() {
     { name: 'Semua', icon: '🏪' },
     { name: 'Sembako', icon: '🍚' },
     { name: 'Sayur & Buah', icon: '🥬' },
-    { name: 'Lauk Pauk', icon: '🥩' },
     { name: 'Snack & Minum', icon: '🥤' },
     { name: 'Bumbu Dapur', icon: '🧂' },
     { name: 'Kebersihan', icon: '🧼' },
