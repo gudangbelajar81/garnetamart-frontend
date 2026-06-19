@@ -46,9 +46,10 @@ function App() {
   const [isDarkMode, setIsDarkMode] = useState(localStorage.getItem('garneta_darkmode') === 'true');
   const [promoInput, setPromoInput] = useState('');
   const [appliedPromo, setAppliedPromo] = useState('');
-
-  // State untuk Fitur Member
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [showPromoPopup, setShowPromoPopup] = useState(true);
+
+  // Status User
   const [loggedInCustomer, setLoggedInCustomer] = useState(null);
 
   // State untuk Peta & Ongkir
@@ -288,11 +289,22 @@ function App() {
         </div>
       </nav>
 
-      <header style={{ padding: '0', marginBottom: '20px' }}>
-        <img src="/promo_banner.png" alt="Promo Spesial" style={{ width: '100%', objectFit: 'cover', display: 'block' }} />
-      </header>
+      {/* PROMO POPUP MODAL */}
+      {showPromoPopup && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: '20px' }}>
+          <div style={{ position: 'relative', width: '100%', maxWidth: '400px', animation: 'fadeInUp 0.3s ease-out' }}>
+            <button 
+              onClick={() => setShowPromoPopup(false)}
+              style={{ position: 'absolute', top: '-40px', right: '0', background: 'transparent', border: 'none', color: 'white', fontSize: '32px', cursor: 'pointer' }}
+            >
+              &times;
+            </button>
+            <img src="/promo_banner.png" alt="Promo Spesial" style={{ width: '100%', borderRadius: '16px', objectFit: 'cover', display: 'block', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }} />
+          </div>
+        </div>
+      )}
 
-      <main className="container" style={{ padding: '0 16px' }}>
+      <main className="container" style={{ padding: '0 16px', paddingTop: '20px' }}>
         {/* ETALASE KATEGORI PINTAR */}
         <div style={{ marginBottom: '20px', background: 'var(--card)', padding: '16px', borderRadius: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
           <div className="shopee-categories">
