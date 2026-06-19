@@ -566,6 +566,17 @@ function App() {
           )}
         </div>
       </div>
+
+      {isAuthModalOpen && (
+        <CustomerAuth 
+          onClose={() => setIsAuthModalOpen(false)} 
+          onLoginSuccess={(customer) => {
+            setLoggedInCustomer(customer);
+            setCustomerInfo({ name: customer.name, address: customer.address, phone: customer.phone });
+            setIsAuthModalOpen(false);
+          }}
+        />
+      )}
     </>
   );
 }
