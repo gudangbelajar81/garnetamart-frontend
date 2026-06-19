@@ -207,32 +207,35 @@ function Dashboard() {
     navigate('/login');
   };
 
-  // MESIN SINTESIS AUDIO (Tanpa file mp3)
+  // MESIN SINTESIS AUDIO (Suara Ting-Tong Kasir Minimart)
   const playNotificationSound = () => {
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
       
-      // Beep 1
-      const osc1 = audioCtx.createOscillator();
-      const gainNode1 = audioCtx.createGain();
-      osc1.connect(gainNode1);
-      gainNode1.connect(audioCtx.destination);
-      osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(800, audioCtx.currentTime); // Nada 800Hz
-      gainNode1.gain.setValueAtTime(0.1, audioCtx.currentTime); // Volume 10%
-      osc1.start(audioCtx.currentTime);
-      osc1.stop(audioCtx.currentTime + 0.1); // Durasi 0.1 detik
-      
-      // Beep 2 (Lebih tinggi)
-      const osc2 = audioCtx.createOscillator();
-      const gainNode2 = audioCtx.createGain();
-      osc2.connect(gainNode2);
-      gainNode2.connect(audioCtx.destination);
-      osc2.type = 'sine';
-      osc2.frequency.setValueAtTime(1200, audioCtx.currentTime + 0.2); // Nada 1200Hz
-      gainNode2.gain.setValueAtTime(0.1, audioCtx.currentTime + 0.2); // Volume 10%
-      osc2.start(audioCtx.currentTime + 0.2);
-      osc2.stop(audioCtx.currentTime + 0.3); // Durasi 0.1 detik
+      const playTone = (freq, startTime, duration) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'bell'; // Gunakan sine yang di-mix, atau cukup 'triangle'
+        osc.type = 'triangle'; 
+        osc.frequency.value = freq;
+        
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(0.3, startTime + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+        
+        osc.start(startTime);
+        osc.stop(startTime + duration);
+      };
+
+      const now = audioCtx.currentTime;
+      // Nada Ting-Tong
+      playTone(659.25, now, 0.5); // Mi
+      playTone(523.25, now + 0.3, 0.8); // Do
       
     } catch(e) {
       console.log("AudioContext tidak didukung atau diblokir browser");
@@ -384,7 +387,14 @@ function Dashboard() {
             <h1 style={{ fontSize: '32px', color: 'var(--dark)' }}>Ruang Kerja Admin</h1>
             <p style={{ color: 'var(--text-muted)' }}>Selamat bertugas, {userName} <span style={{ padding: '2px 8px', background: userRole === 'Manajer' ? '#FEF08A' : '#BFDBFE', color: userRole === 'Manajer' ? '#854D0E' : '#1E40AF', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold' }}>{userRole}</span></p>
           </div>
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <button 
+              onClick={() => { playNotificationSound(); alert("Notifikasi Suara Aktif! Biarkan halaman ini tetap terbuka agar sistem berbunyi saat ada pesanan masuk."); }} 
+              style={{ padding: '10px 16px', background: '#FEF3C7', border: '1px solid #F59E0B', color: '#D97706', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}
+              title="Klik untuk menguji suara alarm"
+            >
+              🔔 Tes Alarm
+            </button>
             {userRole === 'Manajer' && (
               <button onClick={exportToCSV} style={{ padding: '10px 20px', background: '#10B981', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 ⬇️ Unduh Laporan (CSV)
