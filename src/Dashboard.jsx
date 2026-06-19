@@ -26,12 +26,26 @@ function Dashboard() {
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
 
-  // State untuk PIN QRIS
+  // State untuk PIN QRIS (Fitur Ketukan Rahasia)
   const QRIS_PIN = '1998'; // ← GANTI PIN RAHASIA ANDA DI SINI
   const [qrisPinVerified, setQrisPinVerified] = useState(false);
-  const [showQrisPinModal, setShowQrisPinModal] = useState(false);
   const [qrisPinInput, setQrisPinInput] = useState('');
   const [qrisPinError, setQrisPinError] = useState(false);
+  const [showQrisSection, setShowQrisSection] = useState(false);
+  const [secretTapCount, setSecretTapCount] = useState(0);
+  const secretTapTimer = useRef(null);
+
+  const handleSecretTap = () => {
+    const newCount = secretTapCount + 1;
+    setSecretTapCount(newCount);
+    clearTimeout(secretTapTimer.current);
+    if (newCount >= 5) {
+      setShowQrisSection(true);
+      setSecretTapCount(0);
+    } else {
+      secretTapTimer.current = setTimeout(() => setSecretTapCount(0), 1500);
+    }
+  };
 
   // Referensi untuk mendeteksi pesanan baru tanpa re-render
   const prevOrderCount = useRef(-1);
@@ -658,10 +672,15 @@ function Dashboard() {
       {/* TAMPILAN TAB PENGATURAN TOKO */}
       {activeTab === 'settings' && (
         <div style={{ background: 'white', borderRadius: '24px', padding: '30px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}>
-          <h2 style={{ marginBottom: '20px' }}>⚙️ Pengaturan Toko</h2>
+          <h2
+            style={{ marginBottom: '20px', cursor: 'default', userSelect: 'none' }}
+            onClick={handleSecretTap}
+          >
+            ⚙️ Pengaturan Toko
+          </h2>
 
-          {/* PENGATURAN QRIS (HANYA UNTUK MANAJER + PIN) */}
-          {userRole === 'Manajer' && (
+          {/* PENGATURAN QRIS (TERSEMBUNYI - BUKA DENGAN 5x KETUK JUDUL + PIN) */}
+          {showQrisSection && (
             <div style={{ maxWidth: '600px', background: '#EFF6FF', padding: '24px', borderRadius: '16px', border: '1px solid #93C5FD', marginBottom: '30px' }}>
               <h3 style={{ marginTop: 0, marginBottom: '8px', color: '#1D4ED8' }}>📱 Pengaturan QRIS Pembayaran</h3>
               <p style={{ fontSize: '14px', color: '#1E40AF', marginBottom: '16px' }}>
@@ -736,6 +755,7 @@ function Dashboard() {
                       *Gambar akan langsung terganti di seluruh HP pelanggan.
                     </p>
                     <button onClick={() => { setQrisPinVerified(false); setQrisPinInput(''); }} style={{ marginTop: '12px', background: 'transparent', border: 'none', color: '#93C5FD', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' }}>Kunci kembali 🔒</button>
+                    <button onClick={() => { setShowQrisSection(false); setQrisPinVerified(false); setQrisPinInput(''); }} style={{ marginTop: '4px', marginLeft: '12px', background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' }}>Sembunyikan panel ini 🫥</button>
                   </div>
                 </div>
               )}
