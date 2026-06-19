@@ -171,6 +171,8 @@ function App() {
           customer_address: customerInfo.address,
           customer_phone: customerInfo.phone,
           total_amount: grandTotal,
+          shipping_fee: finalShipping,
+          transport_type: transportType,
           cart_items: cartItems
         })
       });

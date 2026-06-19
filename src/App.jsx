@@ -2,6 +2,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Storefront from './Storefront';
 import Login from './Login';
 import Dashboard from './Dashboard';
+import CourierLogin from './CourierLogin';
+import CourierDashboard from './CourierDashboard';
 
 function App() {
   return (
@@ -9,6 +11,8 @@ function App() {
       <Routes>
         <Route path="/" element={<Storefront />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/kurir" element={<CourierLogin />} />
+        <Route path="/kurir/dashboard" element={<CourierDashboard />} />
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <Dashboard />

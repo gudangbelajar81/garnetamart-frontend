@@ -5,8 +5,13 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContaine
 function Dashboard() {
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
+  const [couriers, setCouriers] = useState([]);
   const [activeTab, setActiveTab] = useState('orders');
   const [printOrder, setPrintOrder] = useState(null);
+  
+  // State untuk Tambah Kurir Baru
+  const [newCourierName, setNewCourierName] = useState('');
+  const [newCourierPin, setNewCourierPin] = useState('');
   
   // Modal State untuk Produk
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -24,6 +29,7 @@ function Dashboard() {
   useEffect(() => {
     fetchOrders();
     fetchProducts();
+    fetchCouriers();
 
     // Radar pemantau 10 detik
     const interval = setInterval(() => {
@@ -55,6 +61,48 @@ function Dashboard() {
       .then(res => res.json())
       .then(result => { if (result.success) setProducts(result.data); })
       .catch(err => console.error(err));
+  };
+
+  const fetchCouriers = () => {
+    fetch(`${import.meta.env.VITE_API_URL}/api/couriers`)
+      .then(res => res.json())
+      .then(result => { if(result.success) setCouriers(result.data); })
+      .catch(err => console.error(err));
+  };
+
+  const handleAddCourier = async (e) => {
+    e.preventDefault();
+    if(!newCourierName || !newCourierPin) return alert("Nama dan PIN wajib diisi");
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/couriers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newCourierName, pin: newCourierPin })
+      });
+      const result = await res.json();
+      if(result.success) {
+        setNewCourierName('');
+        setNewCourierPin('');
+        fetchCouriers();
+        alert("Kurir berhasil didaftarkan!");
+      } else {
+        alert(result.message);
+      }
+    } catch(err) { alert("Server error"); }
+  };
+
+  const handleAssignCourier = async (orderId, courierId) => {
+    if (!courierId) return alert("Silakan pilih nama kurir terlebih dahulu dari menu dropdown.");
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${orderId}/assign`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courier_id: courierId })
+      });
+      const result = await res.json();
+      if (result.success) fetchOrders();
+      else alert(result.message);
+    } catch(err) { alert("Gagal menugaskan kurir."); }
   };
 
   const handleLogout = () => {
@@ -275,6 +323,12 @@ function Dashboard() {
             >
               📊 Analitik Bisnis
             </button>
+            <button 
+              onClick={() => setActiveTab('couriers')}
+              style={{ padding: '12px 24px', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', background: activeTab === 'couriers' ? 'var(--primary)' : 'white', color: activeTab === 'couriers' ? 'white' : 'var(--dark)', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}
+            >
+              🛵 Manajemen Kurir
+            </button>
           </>
         )}
       </div>
@@ -308,9 +362,21 @@ function Dashboard() {
                     <td style={{ padding: '16px', color: 'var(--primary)', fontWeight: 'bold' }}>{formatRp(order.total_amount)}</td>
                     <td style={{ padding: '16px', textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                       {(order.status === 'Baru' || order.status === 'Menunggu Konfirmasi' || !order.status) && (
-                        <button onClick={() => handleUpdateOrderStatus(order.id, 'Dikirim')} style={{ padding: '6px 12px', background: '#3B82F6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
-                          🚚 Kirim Barang
-                        </button>
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                          <select 
+                            id={`courier-select-${order.id}`}
+                            style={{ padding: '6px', borderRadius: '8px', border: '1px solid var(--border)' }}
+                          >
+                            <option value="">-- Pilih Kurir --</option>
+                            {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                          <button onClick={() => {
+                            const cid = document.getElementById(`courier-select-${order.id}`).value;
+                            handleAssignCourier(order.id, cid);
+                          }} style={{ padding: '6px 12px', background: '#3B82F6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
+                            🛵 Tugaskan
+                          </button>
+                        </div>
                       )}
                       {order.status === 'Dikirim' && (
                         <button onClick={() => handleUpdateOrderStatus(order.id, 'Selesai')} style={{ padding: '6px 12px', background: '#22C55E', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
@@ -398,6 +464,52 @@ function Dashboard() {
               </ResponsiveContainer>
             </div>
           )}
+        </div>
+      )}
+
+      {/* TAMPILAN TAB MANAJEMEN KURIR */}
+      {activeTab === 'couriers' && (
+        <div style={{ background: 'white', borderRadius: '24px', padding: '30px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}>
+          <h2 style={{ marginBottom: '20px' }}>Daftar Kurir & Pendaftaran</h2>
+          <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1 }}>
+              <form onSubmit={handleAddCourier} style={{ background: '#F9FAFB', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <h3 style={{ margin: 0 }}>➕ Daftarkan Kurir Baru</h3>
+                <input required type="text" placeholder="Nama Kurir (Misal: Budi)" value={newCourierName} onChange={e => setNewCourierName(e.target.value)} style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ccc' }} />
+                <input required type="text" placeholder="Buat PIN Rahasia (Misal: 123456)" value={newCourierPin} onChange={e => setNewCourierPin(e.target.value)} style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ccc' }} />
+                <button type="submit" className="btn btn-primary" style={{ padding: '12px' }}>Daftarkan Kurir</button>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>*Kurir dapat login melalui halaman <b>/kurir</b> menggunakan PIN rahasia ini.</p>
+              </form>
+            </div>
+            <div style={{ flex: 2 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid var(--border)', color: 'var(--text-muted)' }}>
+                    <th style={{ padding: '16px' }}>ID</th>
+                    <th style={{ padding: '16px' }}>Nama Kurir</th>
+                    <th style={{ padding: '16px' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {couriers.length === 0 ? (
+                    <tr><td colSpan="3" style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)' }}>Belum ada kurir terdaftar.</td></tr>
+                  ) : (
+                    couriers.map(c => (
+                      <tr key={c.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '16px', fontWeight: 'bold' }}>#{c.id}</td>
+                        <td style={{ padding: '16px' }}>{c.name}</td>
+                        <td style={{ padding: '16px' }}>
+                          <span style={{ padding: '4px 10px', background: c.is_active ? '#BBF7D0' : '#FECACA', color: c.is_active ? '#166534' : '#991B1B', borderRadius: '99px', fontSize: '12px', fontWeight: 'bold' }}>
+                            {c.is_active ? 'Aktif' : 'Nonaktif'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
