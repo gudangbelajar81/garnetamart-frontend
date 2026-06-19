@@ -24,6 +24,8 @@ function Dashboard() {
   const [promoBannerUrl, setPromoBannerUrl] = useState('');
   const [bannerFile, setBannerFile] = useState(null);
   const [isSavingBanner, setIsSavingBanner] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
 
   // Referensi untuk mendeteksi pesanan baru tanpa re-render
   const prevOrderCount = useRef(-1);
@@ -82,6 +84,30 @@ function Dashboard() {
       alert("Terjadi kesalahan koneksi saat menyimpan banner.");
     } finally {
       setIsSavingBanner(false);
+    }
+  };
+
+  const handleGenerateAI = async () => {
+    if (!aiPrompt) return alert("Deskripsi (Prompt) AI harus diisi!");
+    setIsGeneratingAi(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/settings/banner/ai`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: aiPrompt })
+      });
+      const result = await res.json();
+      if(result.success) {
+        alert("Banner AI berhasil dibuat dan langsung terpasang!");
+        setAiPrompt('');
+        fetchSettings();
+      } else {
+        alert("Gagal membuat banner AI: " + result.message);
+      }
+    } catch (err) {
+      alert("Terjadi kesalahan saat memanggil AI.");
+    } finally {
+      setIsGeneratingAi(false);
     }
   };
 
@@ -573,7 +599,7 @@ function Dashboard() {
           <div style={{ maxWidth: '600px', background: '#F9FAFB', padding: '24px', borderRadius: '16px', border: '1px solid var(--border)' }}>
             <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Manajemen Banner Pop-up Promo</h3>
             
-            <form onSubmit={handleSaveBanner} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               
               {/* Toggle Aktif/Nonaktif */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
@@ -582,7 +608,13 @@ function Dashboard() {
                   <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Tampilkan Pop-up promo saat pembeli masuk ke toko.</span>
                 </div>
                 <label style={{ position: 'relative', display: 'inline-block', width: '50px', height: '28px' }}>
-                  <input type="checkbox" checked={promoActive} onChange={(e) => setPromoActive(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
+                  <input type="checkbox" checked={promoActive} onChange={(e) => {
+                    setPromoActive(e.target.checked);
+                    // Langsung simpan toggle tanpa perlu tekan submit
+                    const formData = new FormData();
+                    formData.append('promo_banner_active', e.target.checked ? '1' : '0');
+                    fetch(`${import.meta.env.VITE_API_URL}/api/settings/banner`, { method: 'POST', body: formData }).then(() => fetchSettings());
+                  }} style={{ opacity: 0, width: 0, height: 0 }} />
                   <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: promoActive ? '#10B981' : '#ccc', transition: '.4s', borderRadius: '34px' }}>
                     <span style={{ position: 'absolute', content: '""', height: '20px', width: '20px', left: promoActive ? '26px' : '4px', bottom: '4px', backgroundColor: 'white', transition: '.4s', borderRadius: '50%' }}></span>
                   </span>
@@ -601,22 +633,49 @@ function Dashboard() {
                 </div>
               </div>
 
-              {/* Unggah Gambar Baru */}
-              <div>
-                <strong style={{ display: 'block', marginBottom: '8px' }}>Ganti Gambar Banner Baru</strong>
-                <input 
-                  type="file" 
-                  accept="image/png, image/jpeg, image/jpg, image/webp" 
-                  onChange={e => setBannerFile(e.target.files[0])} 
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', background: 'white' }} 
-                />
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>Format: JPG, PNG, WEBP. Saran rasio: Lebar (landscape) atau Kotak.</p>
+              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                {/* Opsi 1: Buat dengan AI */}
+                <div style={{ flex: '1 1 250px', background: 'white', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                  <h4 style={{ margin: '0 0 12px 0', color: '#8B5CF6' }}>✨ Buat Banner Otomatis (AI)</h4>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                    Ketik deskripsi promo Anda, AI akan membuatkan gambarnya secara gratis.
+                  </p>
+                  <textarea 
+                    placeholder="Contoh: Promo minyak goreng bimoli diskon besar besaran, background kuning cerah..."
+                    value={aiPrompt}
+                    onChange={e => setAiPrompt(e.target.value)}
+                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', minHeight: '80px', marginBottom: '12px' }}
+                  />
+                  <button 
+                    onClick={handleGenerateAI} 
+                    disabled={isGeneratingAi}
+                    style={{ width: '100%', padding: '10px', background: '#8B5CF6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+                  >
+                    {isGeneratingAi ? '⏳ Melukis Banner...' : '🚀 Generate Banner'}
+                  </button>
+                </div>
+
+                {/* Opsi 2: Unggah Manual */}
+                <div style={{ flex: '1 1 250px', background: 'white', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                  <h4 style={{ margin: '0 0 12px 0' }}>📁 Unggah Gambar Manual</h4>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                    Gunakan file gambar promo resmi dari supplier atau buatan sendiri.
+                  </p>
+                  <form onSubmit={handleSaveBanner} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <input 
+                      type="file" 
+                      accept="image/png, image/jpeg, image/jpg, image/webp" 
+                      onChange={e => setBannerFile(e.target.files[0])} 
+                      style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', background: '#F9FAFB' }} 
+                    />
+                    <button type="submit" className="btn btn-primary" disabled={isSavingBanner || !bannerFile}>
+                      {isSavingBanner ? 'Menyimpan...' : '💾 Unggah & Simpan'}
+                    </button>
+                  </form>
+                </div>
               </div>
 
-              <button type="submit" className="btn btn-primary" disabled={isSavingBanner}>
-                {isSavingBanner ? 'Menyimpan...' : '💾 Simpan Pengaturan Banner'}
-              </button>
-            </form>
+            </div>
           </div>
         </div>
       )}
