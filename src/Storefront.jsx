@@ -63,9 +63,9 @@ function App() {
 
   const smartCategories = [
     { name: 'Semua', icon: '🏪' },
+    { name: 'Grosir / Partai Besar', icon: '📦' },
     { name: 'Sedang Laris', icon: '🔥' },
     { name: 'Sembako', icon: '🍚' },
-    { name: 'Grosir / Partai Besar', icon: '📦' },
     { name: 'Sayur & Buah', icon: '🥬' },
     { name: 'Snack & Minum', icon: '🥤' },
     { name: 'Bumbu Dapur', icon: '🧂' },
