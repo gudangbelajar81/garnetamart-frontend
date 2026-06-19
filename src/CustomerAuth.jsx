@@ -9,10 +9,13 @@ function CustomerAuth({ onClose, onLoginSuccess }) {
     address: ''
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState(''); // 'error' atau 'success'
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+    setMessage('');
 
     const endpoint = isRegister ? '/api/customers/register' : '/api/customers/login';
     
@@ -25,14 +28,19 @@ function CustomerAuth({ onClose, onLoginSuccess }) {
       const result = await res.json();
       
       if (result.success) {
+        setMessageType('success');
+        setMessage(result.message);
         localStorage.setItem('garneta_customer', JSON.stringify(result.data));
-        alert(result.message);
-        onLoginSuccess(result.data);
+        setTimeout(() => {
+          onLoginSuccess(result.data);
+        }, 1000); // Tunggu 1 detik agar pesan sukses terbaca
       } else {
-        alert(result.message);
+        setMessageType('error');
+        setMessage(result.message);
       }
     } catch (err) {
-      alert("Kesalahan koneksi ke server");
+      setMessageType('error');
+      setMessage("Kesalahan koneksi ke server. Pastikan internet Anda lancar.");
     } finally {
       setIsLoading(false);
     }
@@ -50,6 +58,12 @@ function CustomerAuth({ onClose, onLoginSuccess }) {
             {isRegister ? 'Isi data Anda untuk mempermudah belanja berikutnya.' : 'Masuk untuk lanjut belanja dengan cepat.'}
           </p>
         </div>
+
+        {message && (
+          <div style={{ padding: '12px', marginBottom: '16px', borderRadius: '8px', background: messageType === 'success' ? '#D1FAE5' : '#FEE2E2', color: messageType === 'success' ? '#065F46' : '#991B1B', fontSize: '14px', textAlign: 'center', fontWeight: 'bold' }}>
+            {message}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
