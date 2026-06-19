@@ -624,10 +624,45 @@ function Dashboard() {
         </div>
       )}
 
-      {/* TAMPILAN TAB PENGATURAN TOKO (BANNER) */}
+      {/* TAMPILAN TAB PENGATURAN TOKO */}
       {activeTab === 'settings' && (
         <div style={{ background: 'white', borderRadius: '24px', padding: '30px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}>
           <h2 style={{ marginBottom: '20px' }}>⚙️ Pengaturan Toko</h2>
+
+          {/* PENGATURAN QRIS (HANYA UNTUK MANAJER) */}
+          {userRole === 'Manajer' && (
+            <div style={{ maxWidth: '600px', background: '#EFF6FF', padding: '24px', borderRadius: '16px', border: '1px solid #93C5FD', marginBottom: '30px' }}>
+              <h3 style={{ marginTop: 0, marginBottom: '8px', color: '#1D4ED8' }}>📱 Pengaturan QRIS Pembayaran</h3>
+              <p style={{ fontSize: '14px', color: '#1E40AF', marginBottom: '16px' }}>
+                Hanya Anda (Manajer) yang bisa melihat opsi ini. Karyawan kasir tidak memiliki akses untuk mengganti QRIS.
+              </p>
+              
+              <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+                <div style={{ width: '150px', height: '150px', background: 'white', border: '2px dashed #93C5FD', borderRadius: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+                  <img 
+                    src={`${import.meta.env.VITE_API_URL}/uploads/qris.jpg`} 
+                    alt="Current QRIS" 
+                    style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                    onError={(e) => { e.target.src = 'https://via.placeholder.com/150x150?text=Belum+Ada+QRIS' }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'inline-block', background: '#2563EB', color: 'white', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                    Pilih File Gambar QRIS Baru
+                    <input 
+                      type="file" 
+                      accept="image/png, image/jpeg, image/jpg, image/webp" 
+                      onChange={handleUploadQris} 
+                      style={{ display: 'none' }} 
+                    />
+                  </label>
+                  <p style={{ fontSize: '12px', color: '#60A5FA', marginTop: '8px' }}>
+                    *Gambar akan langsung tersimpan dan terganti di layar HP seluruh pelanggan.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           
           <div style={{ maxWidth: '600px', background: '#F9FAFB', padding: '24px', borderRadius: '16px', border: '1px solid var(--border)' }}>
             <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Manajemen Banner Pop-up Promo</h3>

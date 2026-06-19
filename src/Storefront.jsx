@@ -60,6 +60,8 @@ function App() {
   const [shippingCost, setShippingCost] = useState(0);
   const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
   const [transportType, setTransportType] = useState('motor'); // 'motor' atau 'pickup'
+  const [paymentMethod, setPaymentMethod] = useState('cod'); // 'cod' atau 'qris'
+  const [showQrisModal, setShowQrisModal] = useState(false);
 
   const smartCategories = [
     { name: 'Semua', icon: '🏪' },
@@ -240,38 +242,36 @@ function App() {
       });
 
       const result = await response.json();
-
+      const result = await res.json();
+      
       if (result.success) {
-        // RAKIT PESAN WHATSAPP
-        const transportLabel = transportType === 'motor' ? '🛵 Motor / Obrok (Kapasitas Sedang)' : '🛻 Mobil Pick-up (Partai Besar)';
-        
-        let waText = `Halo GarnetaMart! 👋\nSaya ingin memproses pesanan saya (ID: #${result.order_id}):\n\n📦 DAFTAR BELANJA:\n`;
-        cartItems.forEach(c => {
-          waText += `- ${c.qty}x ${c.item.name} (${formatRp(c.item.price)})\n`;
-        });
-        waText += `\nSubtotal: ${formatRp(subtotal)}`;
-        if (discountAmount > 0) waText += `\nDiskon (${appliedPromo}): -${formatRp(discountAmount)}`;
-        waText += `\nOngkir (${distanceKm.toFixed(1)} Km): ${formatRp(finalShipping)}${shippingDiscount > 0 ? ` (Diskon ${appliedPromo})` : ''}`;
-        waText += `\n💰 TOTAL BAYAR: ${formatRp(grandTotal)}\n\n`;
-        waText += `📍 DATA PENGIRIMAN:\nNama: ${customerInfo.name}\nNo WA: ${customerInfo.phone}\nAlamat: ${customerInfo.address}\nArmada: ${transportLabel}\nKoordinat GPS: https://www.google.com/maps/search/?api=1&query=${deliveryCoords.lat},${deliveryCoords.lng}\n\nTolong segera diproses ya! Terima kasih!`;
-
-        const encodedText = encodeURIComponent(waText);
-        const waUrl = `https://wa.me/${ADMIN_WA_NUMBER}?text=${encodedText}`;
-
-        alert("🎉 Pesanan tersimpan! Anda akan diarahkan ke WhatsApp untuk konfirmasi.");
-        window.open(waUrl, '_blank'); // Buka WA di tab baru
-
         setCart({});
-        setCustomerInfo({ name: '', address: '', phone: '' });
-        setAppliedPromo('');
-        setPromoInput('');
-        setDistanceKm(0);
-        setIsModalOpen(false);
+        setShowQrisModal(false);
+        const waNum = ADMIN_WA_NUMBER;
+        
+        let paymentText = paymentMethod === 'qris' 
+          ? `Metode Pembayaran: *QRIS*\n_Saya akan melampirkan bukti transfer di pesan ini._` 
+          : `Metode Pembayaran: *Bayar Tunai (COD)*`;
+
+        let text = `Halo GarnetaMart! Saya mau pesan barang ini:\n\n`;
+        cartItems.forEach(c => {
+          text += `- ${c.item.name} (${c.qty}x) = Rp${(c.item.price * c.qty)}\n`;
+        });
+        text += `\nSubtotal: Rp${subtotal}`;
+        if (discountAmount > 0) text += `\nDiskon Promo: -Rp${discountAmount}`;
+        text += `\nOngkir (${distanceKm.toFixed(1)}Km): Rp${finalShipping}`;
+        text += `\n*TOTAL: Rp${grandTotal}*\n`;
+        text += `\nDikirim ke: ${customerInfo.name} - ${customerInfo.address}\n`;
+        text += `\n${paymentText}`;
+
+        const url = `https://wa.me/${waNum}?text=${encodeURIComponent(text)}`;
+        window.open(url, '_blank');
+        alert("Pesanan berhasil dibuat! Silakan lanjut di WhatsApp.");
       } else {
-        alert("Gagal: " + result.message);
+        alert("Gagal membuat pesanan: " + result.message);
       }
-    } catch (error) {
-      alert("Server Backend sedang mati! Nyalakan dulu server.js nya.");
+    } catch (err) {
+      alert("Terjadi kesalahan jaringan.");
     }
   };
 
@@ -445,16 +445,57 @@ function App() {
               </div>
               <div style={{ marginTop: '20px' }}>
                 <div className="product-price">{formatRp(product.price)}</div>
-                <button className="btn btn-primary" onClick={() => addToCart(product)}>
-                  <span>🛒</span> Tambahkan
-                </button>
-              </div>
+                <button className="btn btn-primary" onClick={() => handleCheckout(false)} style={{ width: '100%', padding: '16px', fontSize: '18px', marginTop: '20px' }}>
+                Pesan Sekarang 🚀
+              </button>
             </div>
           ))}
         </div>
       </main>
 
-      <div className="floating-cart" onClick={() => setIsModalOpen(true)}>
+      {/* POP-UP MODAL QRIS */}
+      {showQrisModal && (
+        <div className="modal-overlay active" style={{ zIndex: 1100 }}>
+          <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
+            <h2 style={{ marginBottom: '10px', color: '#1D4ED8' }}>Pembayaran QRIS</h2>
+            <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+              Silakan scan atau simpan gambar QRIS di bawah ini untuk melakukan pembayaran sebesar <strong>{formatRp(grandTotal)}</strong>
+            </p>
+            
+            <div style={{ border: '4px solid #1D4ED8', borderRadius: '12px', padding: '10px', background: 'white', display: 'inline-block' }}>
+              <img 
+                src={`${import.meta.env.VITE_API_URL}/uploads/qris.jpg`} 
+                alt="QRIS GarnetaMart" 
+                style={{ width: '250px', height: '250px', objectFit: 'contain' }} 
+                onError={(e) => { e.target.src = 'https://via.placeholder.com/250x250?text=QRIS+Belum+Diatur' }}
+              />
+            </div>
+
+            <div style={{ background: '#FEE2E2', border: '1px solid #EF4444', padding: '12px', borderRadius: '8px', marginTop: '20px' }}>
+              <strong style={{ color: '#B91C1C', display: 'block', marginBottom: '4px' }}>⚠️ PERINGATAN KEAMANAN</strong>
+              <span style={{ color: '#991B1B', fontSize: '12px' }}>
+                Pastikan nama penerima di aplikasi M-Banking Anda adalah <strong>TOKO GARNETA</strong>. Jika namanya berbeda, JANGAN LAKUKAN TRANSFER!
+              </span>
+            </div>
+
+            <button 
+              className="btn btn-primary" 
+              onClick={() => handleCheckout(true)} 
+              style={{ width: '100%', padding: '16px', fontSize: '16px', marginTop: '24px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+            >
+              📸 Saya Sudah Transfer (Lanjut ke WA)
+            </button>
+            <button 
+              onClick={() => setShowQrisModal(false)} 
+              style={{ width: '100%', padding: '12px', fontSize: '14px', marginTop: '10px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              Kembali
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP PROMO BANNERS */} <div className="floating-cart" onClick={() => setIsModalOpen(true)}>
         🛒 Keranjang <span className="cart-badge">{totalItems}</span>
       </div>
 
@@ -563,6 +604,27 @@ function App() {
                     <div>
                       <div style={{ fontWeight: 'bold' }}>Mobil Pick-up</div>
                       <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Partai Besar</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Opsi Metode Pembayaran */}
+              <div style={{ marginTop: '16px', padding: '16px', borderRadius: '12px', border: '1px solid #10B981', background: 'var(--card)' }}>
+                <h4 style={{ marginBottom: '12px' }}>💳 Metode Pembayaran</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ padding: '12px', border: paymentMethod === 'cod' ? '2px solid #10B981' : '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', background: paymentMethod === 'cod' ? '#ECFDF5' : 'transparent', transition: 'all 0.2s' }}>
+                    <input type="radio" name="payment" value="cod" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} style={{ width: '18px', height: '18px', accentColor: '#10B981' }} />
+                    <div>
+                      <div style={{ fontWeight: 'bold', color: '#047857' }}>💵 Bayar Tunai (COD)</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Bayar langsung ke kurir saat barang sampai</div>
+                    </div>
+                  </label>
+                  <label style={{ padding: '12px', border: paymentMethod === 'qris' ? '2px solid #3B82F6' : '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', background: paymentMethod === 'qris' ? '#EFF6FF' : 'transparent', transition: 'all 0.2s' }}>
+                    <input type="radio" name="payment" value="qris" checked={paymentMethod === 'qris'} onChange={() => setPaymentMethod('qris')} style={{ width: '18px', height: '18px', accentColor: '#3B82F6' }} />
+                    <div>
+                      <div style={{ fontWeight: 'bold', color: '#1D4ED8' }}>📱 Transfer QRIS (Bebas Biaya)</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Gopay, OVO, ShopeePay, M-Banking</div>
                     </div>
                   </label>
                 </div>
