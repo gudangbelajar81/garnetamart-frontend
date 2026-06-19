@@ -54,6 +54,19 @@ function Dashboard() {
   const userName = localStorage.getItem('garneta_user');
   const userRole = localStorage.getItem('garneta_role') || 'Admin';
 
+  // Auto-hide panel QRIS rahasia setelah 30 detik tanpa aktivitas
+  useEffect(() => {
+    let timeout;
+    if (showQrisSection) {
+      timeout = setTimeout(() => {
+        setShowQrisSection(false);
+        setQrisPinVerified(false);
+        setQrisPinInput('');
+      }, 30000); // 30 detik
+    }
+    return () => clearTimeout(timeout);
+  }, [showQrisSection, qrisPinInput]);
+
   useEffect(() => {
     fetchOrders();
     fetchProducts();
@@ -754,8 +767,7 @@ function Dashboard() {
                     <p style={{ fontSize: '12px', color: '#60A5FA', marginTop: '8px' }}>
                       *Gambar akan langsung terganti di seluruh HP pelanggan.
                     </p>
-                    <button onClick={() => { setQrisPinVerified(false); setQrisPinInput(''); }} style={{ marginTop: '12px', background: 'transparent', border: 'none', color: '#93C5FD', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' }}>Kunci kembali 🔒</button>
-                    <button onClick={() => { setShowQrisSection(false); setQrisPinVerified(false); setQrisPinInput(''); }} style={{ marginTop: '4px', marginLeft: '12px', background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' }}>Sembunyikan panel ini 🫥</button>
+                    <button onClick={() => { setShowQrisSection(false); setQrisPinVerified(false); setQrisPinInput(''); }} style={{ marginTop: '12px', background: '#FEE2E2', border: '1px solid #F87171', color: '#B91C1C', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', padding: '8px 16px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}><span>🔒</span> Tutup & Sembunyikan Panel</button>
                   </div>
                 </div>
               )}
