@@ -4,6 +4,7 @@ import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+import CustomerAuth from './CustomerAuth';
 
 // Fix Leaflet Default Icon in React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -46,6 +47,10 @@ function App() {
   const [promoInput, setPromoInput] = useState('');
   const [appliedPromo, setAppliedPromo] = useState('');
 
+  // State untuk Fitur Member
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [loggedInCustomer, setLoggedInCustomer] = useState(null);
+
   // State untuk Peta & Ongkir
   const [deliveryCoords, setDeliveryCoords] = useState(STORE_COORDS);
   const [distanceKm, setDistanceKm] = useState(0);
@@ -53,7 +58,15 @@ function App() {
   const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
   const [transportType, setTransportType] = useState('motor'); // 'motor' atau 'pickup'
 
-  const categories = ['Semua', 'Sembako', 'Minuman', 'Cemilan', 'Kebutuhan Rumah', 'Lainnya', 'Umum'];
+  const smartCategories = [
+    { name: 'Semua', icon: '🛒' },
+    { name: 'Sembako', icon: '🌾' },
+    { name: 'Minuman', icon: '🧃' },
+    { name: 'Cemilan', icon: '🥨' },
+    { name: 'Kebutuhan Rumah', icon: '🧼' },
+    { name: 'Lainnya', icon: '📦' },
+    { name: 'Umum', icon: '🛍️' }
+  ];
 
   const ratePerKm = transportType === 'motor' ? 2500 : 5000;
 
@@ -66,6 +79,18 @@ function App() {
     }
     localStorage.setItem('garneta_darkmode', isDarkMode);
   }, [isDarkMode]);
+
+  // CEK LOGIN MEMBER SAAT PERTAMA KALI MUAT
+  useEffect(() => {
+    const savedCustomer = localStorage.getItem('garneta_customer');
+    if (savedCustomer) {
+      try {
+        const parsed = JSON.parse(savedCustomer);
+        setLoggedInCustomer(parsed);
+        setCustomerInfo({ name: parsed.name, address: parsed.address, phone: parsed.phone });
+      } catch (e) {}
+    }
+  }, []);
 
   // MENGAMBIL DATA DARI BACKEND
   useEffect(() => {
@@ -173,6 +198,7 @@ function App() {
           total_amount: grandTotal,
           shipping_fee: finalShipping,
           transport_type: transportType,
+          customer_id: loggedInCustomer ? loggedInCustomer.id : null,
           cart_items: cartItems
         })
       });
@@ -217,12 +243,37 @@ function App() {
     <>
       <nav className="navbar">
         <div className="brand">Garneta<span>Mart</span></div>
-        <button
-          onClick={() => setIsDarkMode(!isDarkMode)}
-          style={{ background: 'var(--card)', border: '1px solid var(--border)', fontSize: '20px', cursor: 'pointer', padding: '8px 12px', borderRadius: '99px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}
-        >
-          {isDarkMode ? '☀️ Mode Terang' : '🌙 Mode Gelap'}
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            style={{ background: 'var(--card)', border: '1px solid var(--border)', fontSize: '20px', cursor: 'pointer', padding: '8px 12px', borderRadius: '99px', display: 'flex', alignItems: 'center', color: 'var(--text-main)' }}
+            title="Toggle Dark Mode"
+          >
+            {isDarkMode ? '☀️' : '🌙'}
+          </button>
+          
+          {loggedInCustomer ? (
+            <button
+              onClick={() => {
+                if(window.confirm("Yakin ingin Keluar (Logout)?")) {
+                  localStorage.removeItem('garneta_customer');
+                  setLoggedInCustomer(null);
+                  setCustomerInfo({ name: '', address: '', phone: '' });
+                }
+              }}
+              style={{ background: 'var(--primary)', color: 'white', border: 'none', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', padding: '8px 16px', borderRadius: '99px', display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              👤 {loggedInCustomer.name.split(' ')[0]}
+            </button>
+          ) : (
+            <button
+              onClick={() => setIsAuthModalOpen(true)}
+              style={{ background: 'var(--card)', color: 'var(--primary)', border: '1px solid var(--primary)', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', padding: '8px 16px', borderRadius: '99px', display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              Masuk
+            </button>
+          )}
+        </div>
       </nav>
 
       <header className="hero">
@@ -240,24 +291,33 @@ function App() {
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '2px solid var(--primary)', fontSize: '16px', marginBottom: '16px', outline: 'none', background: 'transparent', color: 'var(--text-main)' }}
           />
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {categories.map(cat => (
+          {/* ETALASE KATEGORI PINTAR */}
+          <div className="smart-categories" style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '10px', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
+            {smartCategories.map(cat => (
               <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
+                key={cat.name}
+                onClick={() => setSelectedCategory(cat.name)}
                 style={{
-                  padding: '8px 16px',
-                  borderRadius: '99px',
-                  border: 'none',
-                  fontWeight: 'bold',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  minWidth: '90px',
+                  padding: '12px 8px',
+                  borderRadius: '20px',
+                  border: selectedCategory === cat.name ? '2px solid var(--primary)' : '1px solid var(--border)',
+                  background: selectedCategory === cat.name ? 'var(--card)' : 'transparent',
                   cursor: 'pointer',
-                  background: selectedCategory === cat ? 'var(--primary)' : 'transparent',
-                  color: selectedCategory === cat ? 'white' : 'var(--text-muted)',
-                  border: selectedCategory === cat ? '1px solid var(--primary)' : '1px solid var(--border)',
-                  transition: '0.2s'
+                  transition: '0.2s',
+                  boxShadow: selectedCategory === cat.name ? '0 8px 16px rgba(16,185,129,0.15)' : 'none',
+                  transform: selectedCategory === cat.name ? 'translateY(-2px)' : 'none'
                 }}
               >
-                {cat}
+                <div style={{ background: selectedCategory === cat.name ? '#D1FAE5' : 'var(--card)', padding: '12px', borderRadius: '50%', marginBottom: '8px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '50px', height: '50px' }}>
+                  <span style={{ fontSize: '24px' }}>{cat.icon}</span>
+                </div>
+                <span style={{ fontSize: '11px', fontWeight: 'bold', color: selectedCategory === cat.name ? 'var(--primary)' : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                  {cat.name}
+                </span>
               </button>
             ))}
           </div>
@@ -377,24 +437,28 @@ function App() {
                 <input
                   type="text"
                   placeholder="Nama Penerima"
-                  style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-main)' }}
+                  style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: loggedInCustomer ? '#E5E7EB' : 'transparent', color: 'var(--text-main)' }}
                   value={customerInfo.name}
                   onChange={e => setCustomerInfo({ ...customerInfo, name: e.target.value })}
+                  disabled={!!loggedInCustomer}
                 />
                 <input
                   type="text"
                   placeholder="Alamat Lengkap (Jl, RT/RW, Patokan)"
-                  style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-main)' }}
+                  style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: loggedInCustomer ? '#E5E7EB' : 'transparent', color: 'var(--text-main)' }}
                   value={customerInfo.address}
                   onChange={e => setCustomerInfo({ ...customerInfo, address: e.target.value })}
+                  disabled={!!loggedInCustomer}
                 />
                 <input
                   type="text"
                   placeholder="No WhatsApp"
-                  style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-main)' }}
+                  style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: loggedInCustomer ? '#E5E7EB' : 'transparent', color: 'var(--text-main)' }}
                   value={customerInfo.phone}
                   onChange={e => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
+                  disabled={!!loggedInCustomer}
                 />
+                {loggedInCustomer && <p style={{ fontSize: '12px', color: 'var(--secondary)', margin: '0' }}>✅ Menggunakan data member (Otomatis)</p>}
               </div>
 
               {/* Opsi Kendaraan */}

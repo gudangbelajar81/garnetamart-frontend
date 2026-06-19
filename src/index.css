@@ -391,3 +391,7 @@ body.dark-theme .cart-summary {
   .floating-cart { bottom: 20px; right: 20px; }
   .navbar { padding: 16px 20px; }
 }
+
+.smart-categories::-webkit-scrollbar {
+  display: none;
+}

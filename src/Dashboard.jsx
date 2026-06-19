@@ -564,44 +564,45 @@ function Dashboard() {
         </div>
       )}
 
-      {/* Lembar Cetak Resi (Tersembunyi secara default) */}
+      {/* Lembar Cetak Resi (Thermal 58mm) */}
       {printOrder && (
-        <div id="print-section" style={{ position: 'absolute', top: 0, left: 0, width: '100%', background: 'white', padding: '20px', zIndex: 9999, fontFamily: 'monospace', color: 'black' }}>
-          <div style={{ border: '2px solid black', padding: '20px', borderRadius: '8px', maxWidth: '400px', margin: '0 auto' }}>
-            <h2 style={{ textAlign: 'center', margin: '0 0 10px 0', borderBottom: '2px dashed black', paddingBottom: '10px' }}>GARNETAMART</h2>
-            <h3 style={{ textAlign: 'center', margin: '0 0 20px 0' }}>LABEL PENGIRIMAN</h3>
+        <div id="print-section" style={{ background: 'white', color: 'black', fontFamily: "'Courier New', Courier, monospace", padding: '10px' }}>
+          <div>
+            <h2 style={{ textAlign: 'center', margin: '0 0 5px 0', fontSize: '18px', borderBottom: '1px dashed black', paddingBottom: '5px' }}>GARNETAMART</h2>
+            <p style={{ textAlign: 'center', margin: '0 0 15px 0', fontSize: '12px' }}>Struk Pengiriman</p>
             
-            <p style={{ margin: '5px 0' }}><strong>ID Pesanan:</strong> #{printOrder.id}</p>
-            <p style={{ margin: '5px 0' }}><strong>Tanggal:</strong> {new Date(printOrder.order_date).toLocaleString('id-ID')}</p>
+            <p style={{ margin: '3px 0', fontSize: '11px' }}>ID: #{printOrder.id}</p>
+            <p style={{ margin: '3px 0', fontSize: '11px' }}>Tgl: {new Date(printOrder.order_date).toLocaleString('id-ID')}</p>
             
-            <div style={{ marginTop: '20px', borderTop: '1px solid black', borderBottom: '1px solid black', padding: '10px 0' }}>
-              <p style={{ margin: '5px 0', fontSize: '12px' }}><strong>TUJUAN:</strong></p>
-              <p style={{ margin: '5px 0', fontSize: '18px', fontWeight: 'bold' }}>{printOrder.customer_name}</p>
-              <p style={{ margin: '5px 0', fontSize: '16px' }}>WA: {printOrder.customer_phone}</p>
-              <p style={{ margin: '5px 0' }}>{printOrder.customer_address}</p>
+            <div style={{ margin: '10px 0', borderTop: '1px dashed black', borderBottom: '1px dashed black', padding: '5px 0' }}>
+              <p style={{ margin: '3px 0', fontSize: '11px' }}><strong>PENERIMA:</strong></p>
+              <p style={{ margin: '3px 0', fontSize: '14px', fontWeight: 'bold' }}>{printOrder.customer_name}</p>
+              <p style={{ margin: '3px 0', fontSize: '12px' }}>{printOrder.customer_phone}</p>
+              <p style={{ margin: '3px 0', fontSize: '11px' }}>{printOrder.customer_address}</p>
             </div>
             
-            <div style={{ marginTop: '20px', textAlign: 'right' }}>
-              <p style={{ margin: '5px 0' }}><strong>Total Tagihan:</strong></p>
-              <h2 style={{ margin: '5px 0', fontSize: '24px' }}>{formatRp(printOrder.total_amount)}</h2>
-              <p style={{ margin: '5px 0', fontSize: '12px', fontWeight: 'bold' }}>({printOrder.status || 'Baru'})</p>
+            <div style={{ margin: '10px 0', textAlign: 'right' }}>
+              <p style={{ margin: '3px 0', fontSize: '11px' }}>Total Bayar:</p>
+              <h2 style={{ margin: '3px 0', fontSize: '16px' }}>{formatRp(printOrder.total_amount)}</h2>
+              <p style={{ margin: '3px 0', fontSize: '11px' }}>({printOrder.status || 'Baru'})</p>
             </div>
             
-            <div style={{ marginTop: '30px', textAlign: 'center', fontSize: '10px', color: '#555' }}>
-              <p>Terima kasih telah berbelanja di GarnetaMart.</p>
-              <p>Harap periksa kelengkapan paket sebelum kurir pergi.</p>
+            <div style={{ marginTop: '20px', textAlign: 'center', fontSize: '10px' }}>
+              <p style={{ margin: '2px 0' }}>Terima kasih 🙏</p>
+              <p style={{ margin: '2px 0' }}>GarnetaMart Grosir</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Style khusus untuk cetak */}
+      {/* Style khusus untuk cetak Thermal 58mm */}
       <style>
         {`
           @media print {
-            body * {
-              visibility: hidden;
-            }
+            @page { margin: 0; }
+            body { margin: 0; padding: 0; background: white; }
+            body * { visibility: hidden; }
+            
             #print-section, #print-section * {
               visibility: visible;
             }
@@ -609,7 +610,9 @@ function Dashboard() {
               position: absolute;
               left: 0;
               top: 0;
-              width: 100%;
+              width: 58mm; /* Lebar kertas kasir thermal */
+              padding: 0;
+              margin: 0;
             }
           }
         `}
