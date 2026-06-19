@@ -26,6 +26,13 @@ function Dashboard() {
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
 
+  // State untuk PIN QRIS
+  const QRIS_PIN = '1998'; // ← GANTI PIN RAHASIA ANDA DI SINI
+  const [qrisPinVerified, setQrisPinVerified] = useState(false);
+  const [showQrisPinModal, setShowQrisPinModal] = useState(false);
+  const [qrisPinInput, setQrisPinInput] = useState('');
+  const [qrisPinError, setQrisPinError] = useState(false);
+
   // Referensi untuk mendeteksi pesanan baru tanpa re-render
   const prevOrderCount = useRef(-1);
 
@@ -653,38 +660,85 @@ function Dashboard() {
         <div style={{ background: 'white', borderRadius: '24px', padding: '30px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}>
           <h2 style={{ marginBottom: '20px' }}>⚙️ Pengaturan Toko</h2>
 
-          {/* PENGATURAN QRIS (HANYA UNTUK MANAJER) */}
+          {/* PENGATURAN QRIS (HANYA UNTUK MANAJER + PIN) */}
           {userRole === 'Manajer' && (
             <div style={{ maxWidth: '600px', background: '#EFF6FF', padding: '24px', borderRadius: '16px', border: '1px solid #93C5FD', marginBottom: '30px' }}>
               <h3 style={{ marginTop: 0, marginBottom: '8px', color: '#1D4ED8' }}>📱 Pengaturan QRIS Pembayaran</h3>
               <p style={{ fontSize: '14px', color: '#1E40AF', marginBottom: '16px' }}>
-                Hanya Anda (Manajer) yang bisa melihat opsi ini. Karyawan kasir tidak memiliki akses untuk mengganti QRIS.
+                Hanya pemilik yang dapat mengganti gambar QRIS. Dilindungi oleh PIN rahasia.
               </p>
-              
-              <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
-                <div style={{ width: '150px', height: '150px', background: 'white', border: '2px dashed #93C5FD', borderRadius: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
-                  <img 
-                    src={`${import.meta.env.VITE_API_URL}/uploads/qris.jpg`} 
-                    alt="Current QRIS" 
-                    style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
-                    onError={(e) => { e.target.src = 'https://via.placeholder.com/150x150?text=Belum+Ada+QRIS' }}
-                  />
+
+              {!qrisPinVerified ? (
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ fontWeight: 'bold', marginBottom: '12px' }}>🔒 Masukkan PIN Rahasia untuk melanjutkan</p>
+                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '12px' }}>
+                    {[0,1,2,3].map(i => (
+                      <div key={i} style={{ width: '48px', height: '56px', background: 'white', border: `2px solid ${qrisPinError ? '#EF4444' : '#93C5FD'}`, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', fontWeight: 'bold', color: '#1D4ED8' }}>
+                        {qrisPinInput[i] ? '●' : ''}
+                      </div>
+                    ))}
+                  </div>
+                  {qrisPinError && <p style={{ color: '#EF4444', fontSize: '13px', marginBottom: '8px' }}>❌ PIN salah! Coba lagi.</p>}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', maxWidth: '200px', margin: '0 auto' }}>
+                    {['1','2','3','4','5','6','7','8','9','←','0','✓'].map(key => (
+                      <button key={key} onClick={() => {
+                        if (key === '←') {
+                          setQrisPinInput(p => p.slice(0,-1));
+                          setQrisPinError(false);
+                        } else if (key === '✓') {
+                          if (qrisPinInput === QRIS_PIN) {
+                            setQrisPinVerified(true);
+                            setQrisPinError(false);
+                          } else {
+                            setQrisPinError(true);
+                            setQrisPinInput('');
+                          }
+                        } else if (qrisPinInput.length < 4) {
+                          const newPin = qrisPinInput + key;
+                          setQrisPinInput(newPin);
+                          setQrisPinError(false);
+                          if (newPin.length === 4) {
+                            if (newPin === QRIS_PIN) {
+                              setQrisPinVerified(true);
+                            } else {
+                              setTimeout(() => { setQrisPinError(true); setQrisPinInput(''); }, 300);
+                            }
+                          }
+                        }
+                      }} style={{ padding: '14px', background: key === '✓' ? '#2563EB' : key === '←' ? '#FEE2E2' : 'white', color: key === '✓' ? 'white' : key === '←' ? '#EF4444' : '#1D4ED8', border: '1px solid #BFDBFE', borderRadius: '8px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer' }}>
+                        {key}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'inline-block', background: '#2563EB', color: 'white', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                    Pilih File Gambar QRIS Baru
-                    <input 
-                      type="file" 
-                      accept="image/png, image/jpeg, image/jpg, image/webp" 
-                      onChange={handleUploadQris} 
-                      style={{ display: 'none' }} 
+              ) : (
+                <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+                  <div style={{ width: '150px', height: '150px', background: 'white', border: '2px dashed #93C5FD', borderRadius: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+                    <img 
+                      src={`${import.meta.env.VITE_API_URL}/uploads/qris.jpg`} 
+                      alt="Current QRIS" 
+                      style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                      onError={(e) => { e.target.src = 'https://via.placeholder.com/150x150?text=Belum+Ada+QRIS' }}
                     />
-                  </label>
-                  <p style={{ fontSize: '12px', color: '#60A5FA', marginTop: '8px' }}>
-                    *Gambar akan langsung tersimpan dan terganti di layar HP seluruh pelanggan.
-                  </p>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: '13px', color: '#1E40AF', marginBottom: '12px' }}>✅ PIN benar! Anda bisa mengganti gambar QRIS.</p>
+                    <label style={{ display: 'inline-block', background: '#2563EB', color: 'white', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                      Pilih File Gambar QRIS Baru
+                      <input 
+                        type="file" 
+                        accept="image/png, image/jpeg, image/jpg, image/webp" 
+                        onChange={handleUploadQris} 
+                        style={{ display: 'none' }} 
+                      />
+                    </label>
+                    <p style={{ fontSize: '12px', color: '#60A5FA', marginTop: '8px' }}>
+                      *Gambar akan langsung terganti di seluruh HP pelanggan.
+                    </p>
+                    <button onClick={() => { setQrisPinVerified(false); setQrisPinInput(''); }} style={{ marginTop: '12px', background: 'transparent', border: 'none', color: '#93C5FD', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' }}>Kunci kembali 🔒</button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
           
