@@ -60,13 +60,22 @@ function App() {
   const [transportType, setTransportType] = useState('motor'); // 'motor' atau 'pickup'
 
   const smartCategories = [
-    { name: 'Semua', icon: '🛒' },
-    { name: 'Sembako', icon: '🌾' },
-    { name: 'Minuman', icon: '🧃' },
-    { name: 'Cemilan', icon: '🥨' },
-    { name: 'Kebutuhan Rumah', icon: '🧼' },
-    { name: 'Lainnya', icon: '📦' },
-    { name: 'Umum', icon: '🛍️' }
+    { name: 'Semua', icon: '🏪' },
+    { name: 'Sembako', icon: '🍚' },
+    { name: 'Minuman', icon: '🥤' },
+    { name: 'Snack', icon: '🍟' },
+    { name: 'Bumbu', icon: '🧂' },
+    { name: 'Kebersihan', icon: '🧼' },
+    { name: 'Sayuran', icon: '🥬' },
+    { name: 'Buah Segar', icon: '🍎' },
+    { name: 'Susu & Telur', icon: '🥚' },
+    { name: 'Daging', icon: '🥩' },
+    { name: 'Roti & Kue', icon: '🍞' },
+    { name: 'Kesehatan', icon: '💊' },
+    { name: 'Perawatan', icon: '🧴' },
+    { name: 'Alat Tulis', icon: '✏️' },
+    { name: 'Perabotan', icon: '🧹' },
+    { name: 'Lainnya', icon: '📦' }
   ];
 
   const ratePerKm = transportType === 'motor' ? 2500 : 5000;
