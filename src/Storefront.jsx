@@ -47,8 +47,9 @@ function App() {
   const [promoInput, setPromoInput] = useState('');
   const [appliedPromo, setAppliedPromo] = useState('');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [showPromoPopup, setShowPromoPopup] = useState(false); // Default false, di set oleh API
-  const [promoBannerUrl, setPromoBannerUrl] = useState('/promo_banner.png'); // Default fallback
+  const [showPromoPopup, setShowPromoPopup] = useState(false);
+  const [activeBanners, setActiveBanners] = useState([]);
+  const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
 
   // Status User
   const [loggedInCustomer, setLoggedInCustomer] = useState(null);
@@ -82,6 +83,16 @@ function App() {
     localStorage.setItem('garneta_darkmode', isDarkMode);
   }, [isDarkMode]);
 
+  // CAROUSEL TIMER
+  useEffect(() => {
+    if (showPromoPopup && activeBanners.length > 1) {
+      const timer = setInterval(() => {
+        setCurrentBannerIndex((prev) => (prev + 1) % activeBanners.length);
+      }, 3000); // Ganti gambar tiap 3 detik
+      return () => clearInterval(timer);
+    }
+  }, [showPromoPopup, activeBanners.length]);
+
   // CEK LOGIN MEMBER SAAT PERTAMA KALI MUAT
   useEffect(() => {
     const savedCustomer = localStorage.getItem('garneta_customer');
@@ -105,15 +116,15 @@ function App() {
       .catch(err => console.error("Gagal nyambung ke Backend:", err))
       .finally(() => setIsLoading(false));
 
-    // Fetch Banner Settings
-    fetch(`${import.meta.env.VITE_API_URL}/api/settings`)
+    // Fetch Banners
+    fetch(`${import.meta.env.VITE_API_URL}/api/banners`)
       .then(res => res.json())
       .then(result => {
         if(result.success && result.data) {
-          const isActive = result.data.promo_banner_active === '1' || result.data.promo_banner_active === 'true';
-          setShowPromoPopup(isActive);
-          if (result.data.promo_banner_url) {
-            setPromoBannerUrl(result.data.promo_banner_url);
+          const actives = result.data.filter(b => b.is_active);
+          setActiveBanners(actives);
+          if (actives.length > 0) {
+            setShowPromoPopup(true);
           }
         }
       })
@@ -303,17 +314,46 @@ function App() {
         </div>
       </nav>
 
-      {/* PROMO POPUP MODAL */}
-      {showPromoPopup && promoBannerUrl && (
+      {/* PROMO POPUP MODAL (CAROUSEL) */}
+      {showPromoPopup && activeBanners.length > 0 && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: '20px' }}>
           <div style={{ position: 'relative', width: '100%', maxWidth: '400px', animation: 'fadeInUp 0.3s ease-out' }}>
             <button 
               onClick={() => setShowPromoPopup(false)}
-              style={{ position: 'absolute', top: '-40px', right: '0', background: 'transparent', border: 'none', color: 'white', fontSize: '32px', cursor: 'pointer' }}
+              style={{ position: 'absolute', top: '-40px', right: '0', background: 'transparent', border: 'none', color: 'white', fontSize: '32px', cursor: 'pointer', zIndex: 10 }}
             >
               &times;
             </button>
-            <img src={promoBannerUrl.startsWith('http') ? promoBannerUrl : `${import.meta.env.VITE_API_URL}${promoBannerUrl}`} alt="Promo Spesial" style={{ width: '100%', borderRadius: '16px', objectFit: 'cover', display: 'block', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }} />
+            <div style={{ overflow: 'hidden', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', position: 'relative' }}>
+              <div style={{ display: 'flex', transition: 'transform 0.5s ease-in-out', transform: `translateX(-${currentBannerIndex * 100}%)` }}>
+                {activeBanners.map((b, idx) => (
+                  <img 
+                    key={b.id || idx}
+                    src={b.image_url.startsWith('http') ? b.image_url : `${import.meta.env.VITE_API_URL}${b.image_url}`} 
+                    alt={`Promo ${idx + 1}`} 
+                    style={{ width: '100%', flexShrink: 0, objectFit: 'cover', display: 'block' }} 
+                  />
+                ))}
+              </div>
+              
+              {/* Indikator Titik (Dots) */}
+              {activeBanners.length > 1 && (
+                <div style={{ position: 'absolute', bottom: '12px', left: '0', right: '0', display: 'flex', justifyContent: 'center', gap: '6px' }}>
+                  {activeBanners.map((_, idx) => (
+                    <div 
+                      key={idx}
+                      style={{ 
+                        width: idx === currentBannerIndex ? '20px' : '8px', 
+                        height: '8px', 
+                        borderRadius: '99px', 
+                        background: idx === currentBannerIndex ? 'var(--primary)' : 'rgba(255,255,255,0.6)',
+                        transition: 'all 0.3s'
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
