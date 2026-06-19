@@ -242,7 +242,6 @@ function App() {
       });
 
       const result = await response.json();
-      const result = await res.json();
       
       if (result.success) {
         setCart({});
@@ -445,9 +444,10 @@ function App() {
               </div>
               <div style={{ marginTop: '20px' }}>
                 <div className="product-price">{formatRp(product.price)}</div>
-                <button className="btn btn-primary" onClick={() => handleCheckout(false)} style={{ width: '100%', padding: '16px', fontSize: '18px', marginTop: '20px' }}>
-                Pesan Sekarang 🚀
-              </button>
+                <button className="btn btn-primary" onClick={() => addToCart(product)}>
+                  <span>🛒</span> Tambahkan
+                </button>
+              </div>
             </div>
           ))}
         </div>
