@@ -26,6 +26,12 @@ function Dashboard() {
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
 
+  // State untuk Notifikasi Suara
+  const [alarmType, setAlarmType] = useState(localStorage.getItem('garneta_alarm_type') || 'default');
+  const [alarmTtsText, setAlarmTtsText] = useState(localStorage.getItem('garneta_alarm_tts') || 'Ada pesanan bos');
+  const [alarmAudioFile, setAlarmAudioFile] = useState(null);
+  const [isUploadingAlarm, setIsUploadingAlarm] = useState(false);
+
   // State untuk PIN QRIS (Fitur Ketukan Rahasia)
   const QRIS_PIN = '111016'; // ← PIN RAHASIA ANDA (6 DIGIT)
   const [qrisPinVerified, setQrisPinVerified] = useState(false);
@@ -241,8 +247,30 @@ function Dashboard() {
     navigate('/login');
   };
 
-  // MESIN SINTESIS AUDIO (Suara Ting-Tong Kasir Minimart)
+  // MESIN SINTESIS AUDIO (Notifikasi Fleksibel)
   const playNotificationSound = () => {
+    const type = localStorage.getItem('garneta_alarm_type') || 'default';
+    
+    if (type === 'tts') {
+      const text = localStorage.getItem('garneta_alarm_tts') || 'Ada pesanan bos';
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'id-ID'; // Bahasa Indonesia
+      window.speechSynthesis.speak(utterance);
+      return;
+    } else if (type === 'audio') {
+      const audioUrl = `${import.meta.env.VITE_API_URL}/uploads/alarm.mp3`;
+      const audio = new Audio(audioUrl);
+      audio.play().catch(e => {
+        console.log("Custom audio diblokir atau tidak ada, menggunakan suara default", e);
+        playDefaultSound();
+      });
+      return;
+    }
+    
+    playDefaultSound();
+  };
+
+  const playDefaultSound = () => {
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (audioCtx.state === 'suspended') {
@@ -254,13 +282,12 @@ function Dashboard() {
         const gain = audioCtx.createGain();
         osc.connect(gain);
         gain.connect(audioCtx.destination);
-        osc.type = 'bell'; // Gunakan sine yang di-mix, atau cukup 'triangle'
         osc.type = 'triangle'; 
         osc.frequency.value = freq;
         
         gain.gain.setValueAtTime(0, startTime);
-        gain.gain.linearRampToValueAtTime(0.3, startTime + 0.05);
-        gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+        gain.gain.linearRampToValueAtTime(0.5, startTime + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
         
         osc.start(startTime);
         osc.stop(startTime + duration);
@@ -399,6 +426,50 @@ function Dashboard() {
   };
 
   const formatRp = (num) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(num);
+
+  // HANDLERS UNTUK ALARM NOTIFIKASI
+  const handleUploadAlarmAudio = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setIsUploadingAlarm(true);
+    const fd = new FormData();
+    fd.append('audio', file);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/upload-alarm`, {
+        method: 'POST',
+        body: fd
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAlarmAudioFile(data.audio_url);
+        setAlarmType('audio');
+        localStorage.setItem('garneta_alarm_type', 'audio');
+        alert("Suara custom berhasil diunggah dan diaktifkan!");
+        setTimeout(() => playNotificationSound(), 500); // Test play
+      } else {
+        alert("Gagal: " + data.message);
+      }
+    } catch(err) {
+      alert("Error upload file audio.");
+    } finally {
+      setIsUploadingAlarm(false);
+    }
+  };
+
+  const handleSaveTts = (e) => {
+    const val = e.target.value;
+    setAlarmTtsText(val);
+    localStorage.setItem('garneta_alarm_tts', val);
+  };
+  
+  const handleTypeChange = (e) => {
+    const val = e.target.value;
+    setAlarmType(val);
+    localStorage.setItem('garneta_alarm_type', val);
+    if (val !== 'default') {
+      setTimeout(() => playNotificationSound(), 100);
+    }
+  };
 
   // LOGIKA PENGOLAHAN DATA GRAFIK OMZET
   const handleUploadQris = async (e) => {
@@ -774,6 +845,50 @@ function Dashboard() {
             </div>
           )}
           
+          {/* PENGATURAN SUARA NOTIFIKASI */}
+          <div style={{ maxWidth: '600px', background: '#FFFBEB', padding: '24px', borderRadius: '16px', border: '1px solid #FDE68A', marginBottom: '30px' }}>
+            <h3 style={{ marginTop: 0, marginBottom: '16px', color: '#B45309' }}>🔊 Pengaturan Suara Notifikasi</h3>
+            <p style={{ fontSize: '13px', color: '#92400E', marginBottom: '16px' }}>Pilih suara yang akan diputar setiap ada pesanan baru masuk.</p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <input type="radio" value="default" checked={alarmType === 'default'} onChange={handleTypeChange} />
+                <span>🔔 Suara Kasir Minimart (Ting-Tong)</span>
+              </label>
+
+              <div style={{ background: 'white', padding: '16px', borderRadius: '8px', border: '1px solid #FDE68A' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '12px' }}>
+                  <input type="radio" value="tts" checked={alarmType === 'tts'} onChange={handleTypeChange} />
+                  <span style={{ fontWeight: 'bold' }}>🤖 Robot Kasir (Suara Teks)</span>
+                </label>
+                {alarmType === 'tts' && (
+                  <div style={{ marginLeft: '24px' }}>
+                    <p style={{ fontSize: '12px', color: '#6B7280', marginBottom: '8px' }}>Ketik kata-kata yang ingin diucapkan robot:</p>
+                    <input type="text" value={alarmTtsText} onChange={handleSaveTts} placeholder="Contoh: Ada pesanan bos" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #D1D5DB' }} />
+                    <button onClick={playNotificationSound} style={{ marginTop: '8px', padding: '6px 12px', background: '#E5E7EB', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' }}>▶️ Test Suara</button>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ background: 'white', padding: '16px', borderRadius: '8px', border: '1px solid #FDE68A' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '12px' }}>
+                  <input type="radio" value="audio" checked={alarmType === 'audio'} onChange={handleTypeChange} />
+                  <span style={{ fontWeight: 'bold' }}>🎙️ Suara Custom (Upload MP3)</span>
+                </label>
+                {alarmType === 'audio' && (
+                  <div style={{ marginLeft: '24px' }}>
+                    <label style={{ display: 'inline-block', background: '#F59E0B', color: 'white', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
+                      {isUploadingAlarm ? '⏳ Mengunggah...' : 'Pilih File MP3 / WAV'}
+                      <input type="file" accept="audio/*" onChange={handleUploadAlarmAudio} style={{ display: 'none' }} disabled={isUploadingAlarm} />
+                    </label>
+                    <button onClick={playNotificationSound} style={{ marginLeft: '8px', padding: '8px 12px', background: '#E5E7EB', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' }}>▶️ Test Suara</button>
+                    {alarmAudioFile && <p style={{ fontSize: '11px', color: '#10B981', marginTop: '8px' }}>✅ File custom aktif</p>}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div style={{ maxWidth: '600px', background: '#F9FAFB', padding: '24px', borderRadius: '16px', border: '1px solid var(--border)' }}>
             <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Manajemen Banner Pop-up Promo</h3>
             
