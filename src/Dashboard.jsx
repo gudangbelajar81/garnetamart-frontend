@@ -716,7 +716,7 @@ function Dashboard() {
                           const newPin = qrisPinInput + key;
                           setQrisPinInput(newPin);
                           setQrisPinError(false);
-                          if (newPin.length === 4) {
+                          if (newPin.length === 6) {
                             if (newPin === QRIS_PIN) {
                               setQrisPinVerified(true);
                             } else {
