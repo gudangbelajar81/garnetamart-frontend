@@ -63,6 +63,7 @@ function App() {
 
   const smartCategories = [
     { name: 'Semua', icon: '🏪' },
+    { name: 'Sedang Laris', icon: '🔥' },
     { name: 'Sembako', icon: '🍚' },
     { name: 'Sayur & Buah', icon: '🥬' },
     { name: 'Snack & Minum', icon: '🥤' },
@@ -171,11 +172,19 @@ function App() {
   const grandTotal = subtotal - discountAmount + finalShipping;
 
   // LOGIKA PENCARIAN & FILTER KATEGORI
-  const filteredProducts = products.filter(product => {
+  let filteredProducts = products.filter(product => {
+    if (selectedCategory === 'Sedang Laris') return true; // Tampilkan semua dulu, nanti diurutkan
     const matchCategory = selectedCategory === 'Semua' || product.category === selectedCategory;
     const matchSearch = (product.name || "").toLowerCase().includes((searchTerm || "").toLowerCase());
     return matchCategory && matchSearch;
   });
+
+  // LOGIKA KHUSUS KATEGORI TERLARIS
+  if (selectedCategory === 'Sedang Laris') {
+    filteredProducts = filteredProducts
+      .sort((a, b) => (b.sales_count || 0) - (a.sales_count || 0))
+      .slice(0, 5); // Ambil Top 5 paling banyak dibeli
+  }
 
   // KONSTANTA NOMOR WA ADMIN
   const ADMIN_WA_NUMBER = "6285123871118";
@@ -405,8 +414,17 @@ function App() {
             <div key={product.id} className="product-card">
               <div>
                 {product.image_url && product.image_url.startsWith('/uploads/') ? (
-                  <div className="product-image-container" style={{ width: '100%', aspectRatio: '1 / 1', backgroundColor: '#ffffff', borderRadius: '12px', overflow: 'hidden', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <img src={`${import.meta.env.VITE_API_URL}${product.image_url}`} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  <div className="product-image-container" style={{ width: '100%', aspectRatio: '1 / 1', backgroundColor: '#ffffff', borderRadius: '12px', overflow: 'hidden', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                    <img 
+                      src={`${import.meta.env.VITE_API_URL}${product.image_url}`} 
+                      alt={product.name} 
+                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                    <div className="product-icon-fallback" style={{ display: 'none', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', fontSize: '60px', background: '#F3F4F6', color: '#9CA3AF' }}>📦</div>
                   </div>
                 ) : (
                   <div className="product-icon">{product.image_url || '📦'}</div>
@@ -415,10 +433,10 @@ function App() {
                   <h3 className="product-name" style={{ margin: 0 }}>{product.name}</h3>
                   <span style={{ fontSize: '10px', background: '#F3F4F6', padding: '4px 6px', borderRadius: '4px', color: '#4B5563', fontWeight: 'bold' }}>{product.category || 'Umum'}</span>
                 </div>
-                {product.stock < 20 && (
+                {product.sales_count > 0 && (
                   <div style={{ marginTop: '8px', fontSize: '12px' }}>
                     <span style={{ color: '#F59E0B', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      👑 Terlaris <span style={{ letterSpacing: '2px' }}>⭐⭐⭐⭐⭐</span> (100+ terjual)
+                      👑 Terlaris <span style={{ letterSpacing: '2px' }}>⭐⭐⭐⭐⭐</span> ({product.sales_count} terjual)
                     </span>
                   </div>
                 )}
