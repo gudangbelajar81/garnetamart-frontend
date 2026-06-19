@@ -27,7 +27,7 @@ function Dashboard() {
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
 
   // State untuk PIN QRIS (Fitur Ketukan Rahasia)
-  const QRIS_PIN = '1998'; // ← GANTI PIN RAHASIA ANDA DI SINI
+  const QRIS_PIN = '111016'; // ← PIN RAHASIA ANDA (6 DIGIT)
   const [qrisPinVerified, setQrisPinVerified] = useState(false);
   const [qrisPinInput, setQrisPinInput] = useState('');
   const [qrisPinError, setQrisPinError] = useState(false);
@@ -691,8 +691,8 @@ function Dashboard() {
                 <div style={{ textAlign: 'center' }}>
                   <p style={{ fontWeight: 'bold', marginBottom: '12px' }}>🔒 Masukkan PIN Rahasia untuk melanjutkan</p>
                   <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '12px' }}>
-                    {[0,1,2,3].map(i => (
-                      <div key={i} style={{ width: '48px', height: '56px', background: 'white', border: `2px solid ${qrisPinError ? '#EF4444' : '#93C5FD'}`, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', fontWeight: 'bold', color: '#1D4ED8' }}>
+                    {[0,1,2,3,4,5].map(i => (
+                      <div key={i} style={{ width: '40px', height: '52px', background: 'white', border: `2px solid ${qrisPinError ? '#EF4444' : '#93C5FD'}`, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', fontWeight: 'bold', color: '#1D4ED8' }}>
                         {qrisPinInput[i] ? '●' : ''}
                       </div>
                     ))}
@@ -712,7 +712,7 @@ function Dashboard() {
                             setQrisPinError(true);
                             setQrisPinInput('');
                           }
-                        } else if (qrisPinInput.length < 4) {
+                        } else if (qrisPinInput.length < 6) {
                           const newPin = qrisPinInput + key;
                           setQrisPinInput(newPin);
                           setQrisPinError(false);
