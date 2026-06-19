@@ -495,7 +495,8 @@ function App() {
         </div>
       )}
 
-      {/* POPUP PROMO BANNERS */} <div className="floating-cart" onClick={() => setIsModalOpen(true)}>
+      {/* POPUP PROMO BANNERS */}
+      <div className="floating-cart" onClick={() => setIsModalOpen(true)}>
         🛒 Keranjang <span className="cart-badge">{totalItems}</span>
       </div>
 
@@ -703,10 +704,24 @@ function App() {
 
               <button 
                 className="btn btn-primary" 
-                onClick={handleCheckout} 
+                onClick={() => {
+                  if (paymentMethod === 'qris') {
+                    if (!customerInfo.name || !customerInfo.address || !customerInfo.phone) {
+                      alert("Harap isi Nama, Alamat, dan No HP!");
+                      return;
+                    }
+                    if (distanceKm === 0) {
+                      alert("Harap tentukan lokasi pengiriman di Peta!");
+                      return;
+                    }
+                    setShowQrisModal(true);
+                  } else {
+                    handleCheckout();
+                  }
+                }}
                 style={{ marginTop: '24px', opacity: distanceKm === 0 ? 0.5 : 1, cursor: distanceKm === 0 ? 'not-allowed' : 'pointer' }}
               >
-                Kirim Pesanan Sekarang
+                {paymentMethod === 'qris' ? '📱 Lanjut ke Pembayaran QRIS' : 'Kirim Pesanan Sekarang'}
               </button>
             </>
           )}
