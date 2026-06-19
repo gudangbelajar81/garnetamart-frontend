@@ -423,15 +423,17 @@ body.dark-theme .cart-summary {
 
 /* Grid Kategori Shopee */
 .shopee-categories {
-  display: grid;
-  grid-template-rows: repeat(2, auto);
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(70px, 1fr);
+  display: flex;
+  flex-wrap: nowrap;
   gap: 12px;
   overflow-x: auto;
   padding-bottom: 8px;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none;  /* IE and Edge */
+}
+.shopee-categories > button {
+  flex: 0 0 auto;
+  min-width: 75px;
 }
 .shopee-categories::-webkit-scrollbar {
   display: none;

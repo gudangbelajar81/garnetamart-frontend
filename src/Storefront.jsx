@@ -62,19 +62,11 @@ function App() {
   const smartCategories = [
     { name: 'Semua', icon: '🏪' },
     { name: 'Sembako', icon: '🍚' },
-    { name: 'Minuman', icon: '🥤' },
-    { name: 'Snack', icon: '🍟' },
-    { name: 'Bumbu', icon: '🧂' },
+    { name: 'Sayur & Buah', icon: '🥬' },
+    { name: 'Lauk Pauk', icon: '🥩' },
+    { name: 'Snack & Minum', icon: '🥤' },
+    { name: 'Bumbu Dapur', icon: '🧂' },
     { name: 'Kebersihan', icon: '🧼' },
-    { name: 'Sayuran', icon: '🥬' },
-    { name: 'Buah Segar', icon: '🍎' },
-    { name: 'Susu & Telur', icon: '🥚' },
-    { name: 'Daging', icon: '🥩' },
-    { name: 'Roti & Kue', icon: '🍞' },
-    { name: 'Kesehatan', icon: '💊' },
-    { name: 'Perawatan', icon: '🧴' },
-    { name: 'Alat Tulis', icon: '✏️' },
-    { name: 'Perabotan', icon: '🧹' },
     { name: 'Lainnya', icon: '📦' }
   ];
 
