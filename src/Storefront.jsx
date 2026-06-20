@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -25,11 +25,12 @@ const DAFTAR_PROMO = {
 };
 
 // KOMPONEN PETA UNTUK MENDETEKSI KLIK (Dipindah ke luar App untuk mencegah infinite render)
-function LocationMarker({ position, setPosition, onPositionChange }) {
+function LocationMarker({ position, setPosition, onPositionChange, onMapClickGeocode }) {
   const map = useMapEvents({
     click(e) {
       setPosition(e.latlng);
       onPositionChange(e.latlng);
+      if (onMapClickGeocode) onMapClickGeocode(e.latlng);
     },
   });
 
@@ -73,7 +74,8 @@ function App() {
   const [paymentMethod, setPaymentMethod] = useState('cod'); // 'cod' atau 'qris'
   
   // State Pencarian Alamat Peta
-  const [isSearchingAddress, setIsSearchingAddress] = useState(false); // 'cod' atau 'qris'
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
+  const isReverseGeocodingRef = useRef(false);
   const [showQrisModal, setShowQrisModal] = useState(false);
 
   const smartCategories = [
@@ -155,8 +157,32 @@ function App() {
     }
   }, [distanceKm, transportType, ratePerKm]);
 
+  // Reverse Geocoding: Mengisi teks alamat otomatis jika peta diklik manual
+  const handleMapClickGeocode = async (latlng) => {
+    try {
+      setIsSearchingAddress(true);
+      isReverseGeocodingRef.current = true; // Tandai bahwa ini dari map click, agar tidak trigger forward geocoding loop
+      // API Nominatim Reverse Geocoding
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latlng.lat}&lon=${latlng.lng}`);
+      const data = await res.json();
+      if (data && data.display_name) {
+        setCustomerInfo(prev => ({ ...prev, address: data.display_name }));
+      }
+    } catch (err) {
+      console.log("Reverse geocoding error", err);
+    } finally {
+      setIsSearchingAddress(false);
+    }
+  };
+
   // Pencarian Lokasi Peta Otomatis (Geocoding) Saat Mengetik Alamat
   useEffect(() => {
+    // Abaikan jika alamat kosong atau perubahan teks ini berasal dari reverse geocoding map click
+    if (isReverseGeocodingRef.current) {
+      isReverseGeocodingRef.current = false; // Reset flag
+      return;
+    }
+    
     if (!customerInfo.address || customerInfo.address.length < 5) return;
     
     // Gunakan trik "Debounce" agar tidak nge-spam API saat user mengetik
@@ -164,7 +190,8 @@ function App() {
       setIsSearchingAddress(true);
       try {
         // Menggunakan OpenStreetMap Nominatim API (Gratis)
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(customerInfo.address)}&limit=1&countrycodes=id`);
+        // Dibatasi area Yogyakarta (viewbox=109.9,-7.5,110.9,-8.3&bounded=1)
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(customerInfo.address)}&limit=1&countrycodes=id&viewbox=109.9,-7.5,110.9,-8.3&bounded=1`);
         const data = await res.json();
         if (data && data.length > 0) {
           const newPos = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
@@ -688,7 +715,7 @@ function App() {
                 <div style={{ height: '220px', width: '100%', borderRadius: '8px', overflow: 'hidden', border: '2px solid var(--primary)', zIndex: 0, position: 'relative' }}>
                   <MapContainer center={STORE_COORDS} zoom={13} style={{ height: '100%', width: '100%', zIndex: 0 }}>
                     <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OSM' />
-                    <LocationMarker position={deliveryCoords} setPosition={setDeliveryCoords} onPositionChange={calculateDistance} />
+                    <LocationMarker position={deliveryCoords} setPosition={setDeliveryCoords} onPositionChange={calculateDistance} onMapClickGeocode={handleMapClickGeocode} />
                   </MapContainer>
                 </div>
                 {distanceKm > 0 ? (
