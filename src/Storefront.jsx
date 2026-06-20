@@ -651,6 +651,32 @@ function App() {
                   />
                   {isSearchingAddress && <p style={{ fontSize: '11px', color: 'var(--primary)', margin: '4px 0 0 0' }}>🔍 Sedang mencari titik peta otomatis...</p>}
                 </div>
+
+                {/* Peta Lokasi Dipindah ke Sini agar dekat dengan Alamat */}
+                <div style={{ marginBottom: '10px', background: 'var(--card)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                  <h4 style={{ marginBottom: '8px' }}>📍 Tandai Titik Peta Pengiriman</h4>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                    Klik peta untuk menandai rumah Anda. Mesin akan menghitung jarak otomatis (Tarif saat ini: Rp {formatRp(ratePerKm)}/Km).
+                  </p>
+                  <div style={{ height: '220px', width: '100%', borderRadius: '8px', overflow: 'hidden', border: '2px solid var(--primary)', zIndex: 0, position: 'relative' }}>
+                    <MapContainer center={STORE_COORDS} zoom={13} style={{ height: '100%', width: '100%', zIndex: 0 }}>
+                      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OSM' />
+                      <LocationMarker position={deliveryCoords} setPosition={setDeliveryCoords} onPositionChange={calculateDistance} onMapClickGeocode={handleMapClickGeocode} />
+                    </MapContainer>
+                  </div>
+                  {distanceKm > 0 ? (
+                    <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FEF3C7', padding: '12px', borderRadius: '8px', color: '#92400E' }}>
+                      <div style={{ fontWeight: 'bold' }}>Jarak: {distanceKm.toFixed(1)} Km</div>
+                      <div style={{ fontWeight: 'bold', fontSize: '16px' }}>Ongkir: {formatRp(shippingCost)}</div>
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: '12px', textAlign: 'center', color: '#EF4444', fontWeight: 'bold', fontSize: '14px' }}>
+                      Mohon klik peta di atas untuk memunculkan tarif ongkir!
+                    </div>
+                  )}
+                  {isCalculatingDistance && <div style={{ fontSize: '12px', color: 'var(--primary)', marginTop: '4px' }}>⏳ Menghitung rute...</div>}
+                </div>
+
                 <input
                   type="text"
                   placeholder="No WhatsApp"
@@ -685,55 +711,9 @@ function App() {
                 </div>
               </div>
 
-              {/* Opsi Metode Pembayaran */}
-              <div style={{ marginTop: '16px', padding: '16px', borderRadius: '12px', border: '1px solid #10B981', background: 'var(--card)' }}>
-                <h4 style={{ marginBottom: '12px' }}>💳 Metode Pembayaran</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <label style={{ padding: '12px', border: paymentMethod === 'cod' ? '2px solid #10B981' : '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', background: paymentMethod === 'cod' ? '#ECFDF5' : 'transparent', transition: 'all 0.2s' }}>
-                    <input type="radio" name="payment" value="cod" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} style={{ width: '18px', height: '18px', accentColor: '#10B981' }} />
-                    <div>
-                      <div style={{ fontWeight: 'bold', color: '#047857' }}>💵 Bayar Tunai (COD)</div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Bayar langsung ke kurir saat barang sampai</div>
-                    </div>
-                  </label>
-                  <label style={{ padding: '12px', border: paymentMethod === 'qris' ? '2px solid #3B82F6' : '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', background: paymentMethod === 'qris' ? '#EFF6FF' : 'transparent', transition: 'all 0.2s' }}>
-                    <input type="radio" name="payment" value="qris" checked={paymentMethod === 'qris'} onChange={() => setPaymentMethod('qris')} style={{ width: '18px', height: '18px', accentColor: '#3B82F6' }} />
-                    <div>
-                      <div style={{ fontWeight: 'bold', color: '#1D4ED8' }}>📱 Transfer QRIS (Bebas Biaya)</div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Gopay, OVO, ShopeePay, M-Banking</div>
-                    </div>
-                  </label>
-                </div>
-              </div>
-
-              {/* Peta Lokasi */}
-              <div style={{ marginTop: '20px', marginBottom: '10px', background: 'var(--card)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                <h4 style={{ marginBottom: '8px' }}>📍 Tandai Titik Peta Pengiriman</h4>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                  Klik peta untuk menandai rumah Anda. Mesin akan menghitung jarak otomatis (Tarif saat ini: Rp {formatRp(ratePerKm)}/Km).
-                </p>
-                <div style={{ height: '220px', width: '100%', borderRadius: '8px', overflow: 'hidden', border: '2px solid var(--primary)', zIndex: 0, position: 'relative' }}>
-                  <MapContainer center={STORE_COORDS} zoom={13} style={{ height: '100%', width: '100%', zIndex: 0 }}>
-                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OSM' />
-                    <LocationMarker position={deliveryCoords} setPosition={setDeliveryCoords} onPositionChange={calculateDistance} onMapClickGeocode={handleMapClickGeocode} />
-                  </MapContainer>
-                </div>
-                {distanceKm > 0 ? (
-                  <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FEF3C7', padding: '12px', borderRadius: '8px', color: '#92400E' }}>
-                    <div style={{ fontWeight: 'bold' }}>Jarak: {distanceKm.toFixed(1)} Km</div>
-                    <div style={{ fontWeight: 'bold', fontSize: '16px' }}>Ongkir: {formatRp(shippingCost)}</div>
-                  </div>
-                ) : (
-                  <div style={{ marginTop: '12px', textAlign: 'center', color: '#EF4444', fontWeight: 'bold', fontSize: '14px' }}>
-                    Mohon klik peta di atas untuk memunculkan tarif ongkir!
-                  </div>
-                )}
-                {isCalculatingDistance && <div style={{ fontSize: '12px', color: 'var(--primary)', marginTop: '4px' }}>⏳ Menghitung rute...</div>}
-              </div>
-
               {/* Peringatan Ongkir untuk Motor */}
               {transportType === 'motor' && (
-                <div style={{ marginBottom: '20px', padding: '12px', borderRadius: '8px', background: '#FEE2E2', color: '#991B1B', fontSize: '12px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                <div style={{ marginBottom: '20px', marginTop: '12px', padding: '12px', borderRadius: '8px', background: '#FEE2E2', color: '#991B1B', fontSize: '12px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
                   <span style={{ fontSize: '16px' }}>⚠️</span>
                   <div>
                     <strong>Catatan Penting:</strong> Pilihan armada di atas adalah estimasi. Jika armada yang Anda pilih tidak muat untuk membawa barang belanjaan Anda, ongkos kirim akan <strong>disesuaikan kembali</strong> oleh Admin kami melalui WhatsApp.
@@ -742,7 +722,7 @@ function App() {
               )}
 
               {transportType === 'pickup' && (
-                <div style={{ marginBottom: '20px', padding: '12px', borderRadius: '8px', background: '#FEF3C7', color: '#92400E', fontSize: '12px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                <div style={{ marginBottom: '20px', marginTop: '12px', padding: '12px', borderRadius: '8px', background: '#FEF3C7', color: '#92400E', fontSize: '12px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
                   <span style={{ fontSize: '16px' }}>💪</span>
                   <div>
                     <strong>Info Bongkar Muatan:</strong> Untuk pengiriman via Pick-up dengan volume/jumlah sangat banyak, pembeli diharapkan <strong>turut serta membongkar muatan sendiri</strong>. Jika tidak memungkinkan, silakan bernegosiasi biaya jasa bongkar secara langsung dengan supir/kurir di lokasi.
@@ -774,6 +754,27 @@ function App() {
                 <div className="summary-total">
                   <span>Total Bayar</span>
                   <span>{formatRp(grandTotal)}</span>
+                </div>
+              </div>
+
+              {/* Opsi Metode Pembayaran (Dipindah ke bawah Total Bayar) */}
+              <div style={{ marginTop: '16px', padding: '16px', borderRadius: '12px', border: '1px solid #10B981', background: 'var(--card)' }}>
+                <h4 style={{ marginBottom: '12px' }}>💳 Metode Pembayaran</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ padding: '12px', border: paymentMethod === 'cod' ? '2px solid #10B981' : '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', background: paymentMethod === 'cod' ? '#ECFDF5' : 'transparent', transition: 'all 0.2s' }}>
+                    <input type="radio" name="payment" value="cod" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} style={{ width: '18px', height: '18px', accentColor: '#10B981' }} />
+                    <div>
+                      <div style={{ fontWeight: 'bold', color: '#047857' }}>💵 Bayar Tunai (COD)</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Bayar langsung ke kurir saat barang sampai</div>
+                    </div>
+                  </label>
+                  <label style={{ padding: '12px', border: paymentMethod === 'qris' ? '2px solid #3B82F6' : '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', background: paymentMethod === 'qris' ? '#EFF6FF' : 'transparent', transition: 'all 0.2s' }}>
+                    <input type="radio" name="payment" value="qris" checked={paymentMethod === 'qris'} onChange={() => setPaymentMethod('qris')} style={{ width: '18px', height: '18px', accentColor: '#3B82F6' }} />
+                    <div>
+                      <div style={{ fontWeight: 'bold', color: '#1D4ED8' }}>📱 Transfer QRIS (Bebas Biaya)</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Gopay, OVO, ShopeePay, M-Banking</div>
+                    </div>
+                  </label>
                 </div>
               </div>
 
