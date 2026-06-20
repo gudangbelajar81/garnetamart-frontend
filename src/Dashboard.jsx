@@ -623,6 +623,11 @@ function Dashboard() {
                           ✅ Tandai Selesai
                         </button>
                       )}
+                      {order.status === 'Selesai' && order.proof_of_delivery && (
+                        <button onClick={() => window.open(`${import.meta.env.VITE_API_URL}${order.proof_of_delivery}`, '_blank')} style={{ padding: '6px 12px', background: '#8B5CF6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
+                          📸 Lihat Bukti
+                        </button>
+                      )}
                       <button onClick={() => {
                         const phone = order.customer_phone || "";
                         const waNum = phone.startsWith('0') ? '62' + phone.substring(1) : phone;

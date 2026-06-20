@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 function CourierDashboard() {
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUploadingProof, setIsUploadingProof] = useState(false);
+  const [uploadingOrderId, setUploadingOrderId] = useState(null);
   const navigate = useNavigate();
   
   const courierId = localStorage.getItem('courier_id');
@@ -49,6 +51,37 @@ function CourierDashboard() {
       }
     } catch (err) {
       alert("Gagal mengupdate status");
+    }
+  };
+
+  const handleUploadProofAndComplete = async (e, orderId) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if(!window.confirm("Kirim foto bukti ini dan selesaikan pesanan?")) return;
+    
+    setIsUploadingProof(true);
+    setUploadingOrderId(orderId);
+    const fd = new FormData();
+    fd.append('proof_image', file);
+    
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${orderId}/complete`, {
+        method: 'POST',
+        body: fd
+      });
+      const result = await res.json();
+      if(result.success) {
+        fetchOrders();
+      } else {
+        alert("Gagal: " + result.message);
+      }
+    } catch (err) {
+      alert("Error saat mengunggah foto bukti.");
+    } finally {
+      setIsUploadingProof(false);
+      setUploadingOrderId(null);
+      e.target.value = ''; // Reset input
     }
   };
 
@@ -125,9 +158,17 @@ function CourierDashboard() {
                 </div>
               </div>
 
-              <button onClick={() => handleCompleteOrder(order.id)} style={{ width: '100%', padding: '16px', marginTop: '16px', background: '#3B82F6', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}>
-                ✅ Selesai Diantar
-              </button>
+              <label style={{ display: 'block', width: '100%', padding: '16px', marginTop: '16px', background: isUploadingProof && uploadingOrderId === order.id ? '#9CA3AF' : '#3B82F6', color: 'white', borderRadius: '12px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', textAlign: 'center', boxSizing: 'border-box' }}>
+                {isUploadingProof && uploadingOrderId === order.id ? '⏳ Mengunggah Foto...' : '📸 Foto Bukti & Selesai'}
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  capture="environment" 
+                  onChange={(e) => handleUploadProofAndComplete(e, order.id)} 
+                  style={{ display: 'none' }} 
+                  disabled={isUploadingProof}
+                />
+              </label>
             </div>
           ))}
         </div>
