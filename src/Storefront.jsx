@@ -26,12 +26,22 @@ const DAFTAR_PROMO = {
 
 // KOMPONEN PETA UNTUK MENDETEKSI KLIK (Dipindah ke luar App untuk mencegah infinite render)
 function LocationMarker({ position, setPosition, onPositionChange }) {
-  useMapEvents({
+  const map = useMapEvents({
     click(e) {
       setPosition(e.latlng);
       onPositionChange(e.latlng);
     },
   });
+
+  useEffect(() => {
+    if (position && position.lat && position.lng) {
+      map.flyTo([position.lat, position.lng], map.getZoom() || 15, {
+        animate: true,
+        duration: 1.5
+      });
+    }
+  }, [position, map]);
+
   return <Marker position={position}></Marker>;
 }
 
@@ -61,6 +71,9 @@ function App() {
   const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
   const [transportType, setTransportType] = useState('motor'); // 'motor' atau 'pickup'
   const [paymentMethod, setPaymentMethod] = useState('cod'); // 'cod' atau 'qris'
+  
+  // State Pencarian Alamat Peta
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false); // 'cod' atau 'qris'
   const [showQrisModal, setShowQrisModal] = useState(false);
 
   const smartCategories = [
@@ -141,6 +154,32 @@ function App() {
       setShippingCost(Math.ceil(distanceKm) * ratePerKm);
     }
   }, [distanceKm, transportType, ratePerKm]);
+
+  // Pencarian Lokasi Peta Otomatis (Geocoding) Saat Mengetik Alamat
+  useEffect(() => {
+    if (!customerInfo.address || customerInfo.address.length < 5) return;
+    
+    // Gunakan trik "Debounce" agar tidak nge-spam API saat user mengetik
+    const timeoutId = setTimeout(async () => {
+      setIsSearchingAddress(true);
+      try {
+        // Menggunakan OpenStreetMap Nominatim API (Gratis)
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(customerInfo.address)}&limit=1&countrycodes=id`);
+        const data = await res.json();
+        if (data && data.length > 0) {
+          const newPos = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+          setDeliveryCoords(newPos);
+          calculateDistance(newPos); // Langsung hitung jarak dari titik baru
+        }
+      } catch (err) {
+        console.log("Geocoding error", err);
+      } finally {
+        setIsSearchingAddress(false);
+      }
+    }, 1500); // Tunggu 1.5 detik setelah user selesai mengetik
+
+    return () => clearTimeout(timeoutId);
+  }, [customerInfo.address]);
 
   const formatRp = (num) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(num);
 
@@ -574,14 +613,17 @@ function App() {
                   onChange={e => setCustomerInfo({ ...customerInfo, name: e.target.value })}
                   disabled={!!loggedInCustomer}
                 />
-                <input
-                  type="text"
-                  placeholder="Alamat Lengkap (Jl, RT/RW, Patokan)"
-                  style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: loggedInCustomer ? '#E5E7EB' : 'transparent', color: 'var(--text-main)' }}
-                  value={customerInfo.address}
-                  onChange={e => setCustomerInfo({ ...customerInfo, address: e.target.value })}
-                  disabled={!!loggedInCustomer}
-                />
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Alamat Lengkap (Jl, RT/RW, Patokan)"
+                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: loggedInCustomer ? '#E5E7EB' : 'transparent', color: 'var(--text-main)', boxSizing: 'border-box' }}
+                    value={customerInfo.address}
+                    onChange={e => setCustomerInfo({ ...customerInfo, address: e.target.value })}
+                    disabled={!!loggedInCustomer}
+                  />
+                  {isSearchingAddress && <p style={{ fontSize: '11px', color: 'var(--primary)', margin: '4px 0 0 0' }}>🔍 Sedang mencari titik peta otomatis...</p>}
+                </div>
                 <input
                   type="text"
                   placeholder="No WhatsApp"
