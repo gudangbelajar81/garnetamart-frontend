@@ -126,16 +126,23 @@ function App() {
 
   // MENGAMBIL DATA DARI BACKEND
   useEffect(() => {
-    // Fetch Products
-    fetch(`${import.meta.env.VITE_API_URL}/api/products`)
-      .then(res => res.json())
-      .then(result => {
-        if (result.success) setProducts(result.data);
-      })
-      .catch(err => console.error("Gagal nyambung ke Backend:", err))
-      .finally(() => setIsLoading(false));
+    const fetchProducts = () => {
+      fetch(`${import.meta.env.VITE_API_URL}/api/products`)
+        .then(res => res.json())
+        .then(result => {
+          if (result.success) setProducts(result.data);
+        })
+        .catch(err => console.error("Gagal nyambung ke Backend:", err))
+        .finally(() => setIsLoading(false));
+    };
 
-    // Fetch Banners
+    // Fetch pertama kali
+    fetchProducts();
+
+    // Auto-refresh produk setiap 10 detik agar sinkron dengan Admin
+    const interval = setInterval(fetchProducts, 10000);
+
+    // Fetch Banners (hanya sekali saat pertama buka aplikasi)
     fetch(`${import.meta.env.VITE_API_URL}/api/banners`)
       .then(res => res.json())
       .then(result => {
@@ -148,6 +155,8 @@ function App() {
         }
       })
       .catch(err => console.error(err));
+
+    return () => clearInterval(interval);
   }, []);
 
   // Update ongkir otomatis jika jarak atau jenis armada berubah
