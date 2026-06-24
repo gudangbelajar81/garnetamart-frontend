@@ -491,6 +491,7 @@ function App() {
                 {product.image_url && product.image_url.startsWith('/uploads/') ? (
                   <div className="product-image-container" style={{ width: '100%', aspectRatio: '1 / 1', backgroundColor: '#ffffff', borderRadius: '12px', overflow: 'hidden', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                     <img 
+                      key={`img-${product.image_url}`}
                       src={`${import.meta.env.VITE_API_URL}${product.image_url}`} 
                       alt={product.name} 
                       style={{ 
@@ -498,14 +499,15 @@ function App() {
                         height: '100%', 
                         objectFit: 'contain', 
                         padding: '8px', 
-                        filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.08)) contrast(1.1) brightness(1.05)' 
+                        filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.08)) contrast(1.1) brightness(1.05)',
+                        display: 'block'
                       }}
                       onError={(e) => {
                         e.target.style.display = 'none';
                         if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
                       }}
                     />
-                    <div className="product-icon-fallback" style={{ display: 'none', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', fontSize: '60px', background: '#F3F4F6', color: '#9CA3AF' }}>📦</div>
+                    <div key={`fallback-${product.image_url}`} className="product-icon-fallback" style={{ display: 'none', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', fontSize: '60px', background: '#F3F4F6', color: '#9CA3AF' }}>📦</div>
                   </div>
                 ) : (
                   <div className="product-icon">{product.image_url || '📦'}</div>
