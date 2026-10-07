@@ -2,6 +2,27 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
 
+// Helper: bentuk header Authorization dari token admin yang tersimpan di localStorage.
+// Dipakai di semua fetch() yang menghantam endpoint terproteksi verifyAdminToken/verifyStaffToken.
+function authHeader() {
+  const token = localStorage.getItem('garneta_token');
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
+// Dipanggil saat backend membalas 401 (token tidak ada/kedaluwarsa) atau 403 (bukan token admin).
+// Bersihkan sesi lokal lalu lempar balik ke halaman login supaya admin tidak bingung lihat error mentah.
+function forceLogoutIfUnauthorized(status) {
+  if (status === 401 || status === 403) {
+    localStorage.removeItem('garneta_token');
+    localStorage.removeItem('garneta_user');
+    localStorage.removeItem('garneta_role');
+    alert('Sesi login sudah berakhir. Silakan login kembali.');
+    window.location.href = '/login';
+    return true;
+  }
+  return false;
+}
+
 function Dashboard() {
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
@@ -108,6 +129,7 @@ function Dashboard() {
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/banners`, {
         method: 'POST',
+        headers: authHeader(),
         body: formData
       });
       const result = await res.json();
@@ -133,7 +155,7 @@ function Dashboard() {
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/banners/ai`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeader() },
         body: JSON.stringify({ prompt: aiPrompt })
       });
       const result = await res.json();
@@ -155,7 +177,7 @@ function Dashboard() {
     try {
       await fetch(`${import.meta.env.VITE_API_URL}/api/banners/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeader() },
         body: JSON.stringify({ is_active: !currentStatus })
       });
       fetchBanners();
@@ -167,7 +189,7 @@ function Dashboard() {
   const handleDeleteBanner = async (id) => {
     if (!window.confirm("Yakin ingin menghapus banner ini?")) return;
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/banners/${id}`, { method: 'DELETE' });
+      await fetch(`${import.meta.env.VITE_API_URL}/api/banners/${id}`, { method: 'DELETE', headers: authHeader() });
       fetchBanners();
     } catch (err) {
       alert("Gagal menghapus banner.");
@@ -175,8 +197,11 @@ function Dashboard() {
   };
 
   const fetchOrders = () => {
-    fetch(`${import.meta.env.VITE_API_URL}/api/orders`)
-      .then(res => res.json())
+    fetch(`${import.meta.env.VITE_API_URL}/api/orders`, { headers: authHeader() })
+      .then(res => {
+        if (forceLogoutIfUnauthorized(res.status)) return Promise.reject('unauthorized');
+        return res.json();
+      })
       .then(result => { 
         if (result.success) {
           setOrders(result.data); 
@@ -199,7 +224,7 @@ function Dashboard() {
   };
 
   const fetchCouriers = () => {
-    fetch(`${import.meta.env.VITE_API_URL}/api/couriers`)
+    fetch(`${import.meta.env.VITE_API_URL}/api/couriers`, { headers: authHeader() })
       .then(res => res.json())
       .then(result => { if(result.success) setCouriers(result.data); })
       .catch(err => console.error(err));
@@ -211,7 +236,7 @@ function Dashboard() {
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/couriers`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeader() },
         body: JSON.stringify({ name: newCourierName, pin: newCourierPin })
       });
       const result = await res.json();
@@ -231,7 +256,7 @@ function Dashboard() {
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${orderId}/assign`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeader() },
         body: JSON.stringify({ courier_id: courierId })
       });
       const result = await res.json();
@@ -307,7 +332,7 @@ function Dashboard() {
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${id}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeader() },
         body: JSON.stringify({ status: newStatus })
       });
       const result = await res.json();
@@ -370,7 +395,7 @@ function Dashboard() {
   const handleDelete = async (id) => {
     if (!window.confirm("Yakin ingin menghapus produk ini?")) return;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/products/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/products/${id}`, { method: 'DELETE', headers: authHeader() });
       const result = await res.json();
       if (result.success) fetchProducts();
     } catch (err) {
@@ -395,6 +420,7 @@ function Dashboard() {
     try {
       const res = await fetch(url, {
         method,
+        headers: authHeader(),
         body: fd // Tidak perlu Content-Type, browser akan mengaturnya otomatis ke multipart/form-data
       });
       const result = await res.json();
@@ -437,6 +463,7 @@ function Dashboard() {
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/upload-alarm`, {
         method: 'POST',
+        headers: authHeader(),
         body: fd
       });
       const data = await res.json();
@@ -482,6 +509,7 @@ function Dashboard() {
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/upload-qris`, {
         method: 'POST',
+        headers: authHeader(),
         body: formData
       });
       const data = await res.json();

@@ -21,6 +21,7 @@ function CourierLogin() {
       if (result.success) {
         localStorage.setItem('courier_id', result.data.id);
         localStorage.setItem('courier_name', result.data.name);
+        localStorage.setItem('courier_token', result.token);
         navigate('/kurir/dashboard');
       } else {
         alert(result.message);

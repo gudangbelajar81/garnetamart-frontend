@@ -23,7 +23,17 @@ function CourierDashboard() {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/couriers/${courierId}/orders`);
+      const courierToken = localStorage.getItem('courier_token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/couriers/${courierId}/orders`, {
+        headers: { 'Authorization': `Bearer ${courierToken}` }
+      });
+      // Sesi kurir kedaluwarsa/invalid -> bersihkan token lalu balik ke halaman login kurir.
+      if (res.status === 401 || res.status === 403) {
+        localStorage.removeItem('courier_token');
+        alert('Sesi login sudah berakhir. Silakan login kembali.');
+        window.location.href = '/kurir';
+        return;
+      }
       const result = await res.json();
       if (result.success) {
         setOrders(result.data);
@@ -38,9 +48,13 @@ function CourierDashboard() {
   const handleCompleteOrder = async (orderId) => {
     if(!window.confirm("Yakin pesanan ini sudah sampai ke tangan pembeli?")) return;
     try {
+      const courierToken = localStorage.getItem('courier_token');
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${orderId}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${courierToken}`
+        },
         body: JSON.stringify({ status: 'Selesai' })
       });
       const result = await res.json();
@@ -66,8 +80,10 @@ function CourierDashboard() {
     fd.append('proof_image', file);
     
     try {
+      const courierToken = localStorage.getItem('courier_token');
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${orderId}/complete`, {
         method: 'POST',
+        headers: { 'Authorization': `Bearer ${courierToken}` },
         body: fd
       });
       const result = await res.json();
@@ -88,6 +104,7 @@ function CourierDashboard() {
   const handleLogout = () => {
     localStorage.removeItem('courier_id');
     localStorage.removeItem('courier_name');
+    localStorage.removeItem('courier_token');
     navigate('/kurir');
   };
 
