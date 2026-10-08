@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
+import ProductGalleryManager from './ProductGalleryManager';
 
 // Helper: bentuk header Authorization dari token admin yang tersimpan di localStorage.
 // Dipakai di semua fetch() yang menghantam endpoint terproteksi verifyAdminToken/verifyStaffToken.
@@ -1074,6 +1075,10 @@ function Dashboard() {
                 </div>
                 {imageFile && <p style={{ fontSize: '12px', color: '#10B981', margin: 0 }}>✅ 1 Foto siap diunggah ({imageFile.name})</p>}
               </div>
+              {editingId && (
+                <ProductGalleryManager productId={editingId} authHeader={authHeader} />
+              )}
+
               <button type="submit" className="btn btn-primary" style={{ marginTop: '16px' }}>
                 Simpan Barang
               </button>

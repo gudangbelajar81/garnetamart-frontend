@@ -6,6 +6,7 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import CustomerAuth from './CustomerAuth';
 import OrderHistory from './OrderHistory';
+import ProductGalleryModal from './ProductGalleryModal';
 
 // Fix Leaflet Default Icon in React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -60,6 +61,7 @@ function App() {
   const [appliedPromo, setAppliedPromo] = useState('');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isOrderHistoryOpen, setIsOrderHistoryOpen] = useState(false);
+  const [galleryProductId, setGalleryProductId] = useState(null); // Fase 2 #4: ID produk yang galerinya sedang dibuka (null = tutup)
   const [showPromoPopup, setShowPromoPopup] = useState(false);
   const [activeBanners, setActiveBanners] = useState([]);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
@@ -498,7 +500,7 @@ function App() {
         <div className="product-grid">
           {filteredProducts.map(product => (
             <div key={product.id} className="product-card">
-              <div>
+              <div onClick={() => setGalleryProductId(product.id)} style={{ cursor: 'pointer' }}>
                 {product.image_url && product.image_url.startsWith('/uploads/') ? (
                   <div className="product-image-container" style={{ width: '100%', aspectRatio: '1 / 1', backgroundColor: '#ffffff', borderRadius: '12px', overflow: 'hidden', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                     <img 
@@ -836,6 +838,14 @@ function App() {
         <OrderHistory
           customer={loggedInCustomer}
           onClose={() => setIsOrderHistoryOpen(false)}
+        />
+      )}
+
+      {galleryProductId && (
+        <ProductGalleryModal
+          productId={galleryProductId}
+          onClose={() => setGalleryProductId(null)}
+          onAddToCart={addToCart}
         />
       )}
 
