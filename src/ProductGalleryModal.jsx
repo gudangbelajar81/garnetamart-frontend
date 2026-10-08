@@ -47,6 +47,28 @@ function ProductGalleryModal({ productId, onClose, onAddToCart }) {
 
   const apiUrl = import.meta.env.VITE_API_URL;
 
+  // Fase 2 #6: OG Meta per Produk. Link yang dibagikan arahkan ke endpoint backend /produk/:id
+  // (bukan langsung ke SPA), supaya crawler bot WhatsApp/Facebook bisa baca OG meta tag dinamis
+  // sesuai produk saat link di-preview, sebelum manusia yang klik diarahkan balik ke SPA.
+  async function handleShare() {
+    const shareUrl = `${apiUrl}/produk/${productId}`;
+    const shareText = product ? `${product.name} - cek di GarnetaMart!` : 'Cek produk ini di GarnetaMart!';
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: shareText, url: shareUrl });
+      } catch {
+        // User batal share, tidak perlu lakukan apa-apa.
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        alert('Link produk disalin ke clipboard!');
+      } catch {
+        alert(`Bagikan link ini: ${shareUrl}`);
+      }
+    }
+  }
+
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
       <div style={{ background: 'var(--card)', borderRadius: '20px', width: '100%', maxWidth: '480px', maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -54,7 +76,10 @@ function ProductGalleryModal({ productId, onClose, onAddToCart }) {
         {/* Header */}
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ margin: 0, color: 'var(--dark)', fontSize: '16px' }}>🖼️ Detail Produk</h2>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', fontSize: '20px', cursor: 'pointer', color: 'var(--text-muted)' }}>✖</button>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <button onClick={handleShare} title="Bagikan produk ini" style={{ background: 'transparent', border: 'none', fontSize: '18px', cursor: 'pointer', color: 'var(--text-muted)' }}>🔗</button>
+            <button onClick={onClose} style={{ background: 'transparent', border: 'none', fontSize: '20px', cursor: 'pointer', color: 'var(--text-muted)' }}>✖</button>
+          </div>
         </div>
 
         {/* Body */}

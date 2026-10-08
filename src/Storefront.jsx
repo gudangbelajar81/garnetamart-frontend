@@ -62,6 +62,16 @@ function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isOrderHistoryOpen, setIsOrderHistoryOpen] = useState(false);
   const [galleryProductId, setGalleryProductId] = useState(null); // Fase 2 #4: ID produk yang galerinya sedang dibuka (null = tutup)
+
+  // Fase 2 #6: OG Meta per Produk. Kalau URL punya query ?produk=ID (datang dari link share WA/FB
+  // yang diredirect backend endpoint /produk/:id), otomatis buka modal detail produk itu.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const produkId = params.get('produk');
+    if (produkId) {
+      setGalleryProductId(Number(produkId));
+    }
+  }, []);
   const [showPromoPopup, setShowPromoPopup] = useState(false);
   const [activeBanners, setActiveBanners] = useState([]);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
