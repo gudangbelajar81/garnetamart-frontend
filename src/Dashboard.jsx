@@ -53,6 +53,9 @@ function Dashboard() {
   const [alarmType, setAlarmType] = useState(localStorage.getItem('garneta_alarm_type') || 'default');
   const [alarmTtsText, setAlarmTtsText] = useState(localStorage.getItem('garneta_alarm_tts') || 'Ada pesanan bos');
   const [alarmAudioFile, setAlarmAudioFile] = useState(null);
+  const [isAlarmRinging, setIsAlarmRinging] = useState(false); // Fase 3 #1: alarm looping sampai admin acknowledge
+  const alarmLoopRef = useRef(null);
+  const originalTitleRef = useRef(document.title);
   const [isUploadingAlarm, setIsUploadingAlarm] = useState(false);
 
   // State untuk PIN QRIS (Fitur Ketukan Rahasia)
@@ -109,6 +112,21 @@ function Dashboard() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Fase 3 #1: judul tab browser berkedip "🔔 PESANAN BARU!" selagi alarm masih berbunyi,
+  // supaya ketahuan dari tab manapun admin lagi buka (tanpa harus lihat tab Dashboard).
+  useEffect(() => {
+    if (!isAlarmRinging) return;
+    let flashOn = true;
+    const flashInterval = setInterval(() => {
+      document.title = flashOn ? '🔔 PESANAN BARU!' : originalTitleRef.current;
+      flashOn = !flashOn;
+    }, 1000);
+    return () => {
+      clearInterval(flashInterval);
+      document.title = originalTitleRef.current;
+    };
+  }, [isAlarmRinging]);
 
   const fetchBanners = () => {
     fetch(`${import.meta.env.VITE_API_URL}/api/banners`)
@@ -210,7 +228,7 @@ function Dashboard() {
           
           // Logika Alarm (Hanya bunyi jika pesanan bertambah dan bukan saat pertama kali muat)
           if (prevOrderCount.current !== -1 && result.data.length > prevOrderCount.current) {
-            playNotificationSound();
+            startAlarmLoop();
           }
           prevOrderCount.current = result.data.length;
         } 
@@ -275,6 +293,27 @@ function Dashboard() {
   };
 
   // MESIN SINTESIS AUDIO (Notifikasi Fleksibel)
+  // Fase 3 #1: Alarm multi-suara yang REPEAT terus-menerus tiap 5 detik sampai admin
+  // klik "Sudah Dengar, Berhenti" — supaya pesanan tidak terlewat kalau admin lagi di ruangan lain.
+  const startAlarmLoop = () => {
+    if (alarmLoopRef.current) return; // Sudah berbunyi, jangan tumpuk interval baru
+    setIsAlarmRinging(true);
+    playNotificationSound();
+    alarmLoopRef.current = setInterval(() => {
+      playNotificationSound();
+    }, 5000);
+  };
+
+  const stopAlarmLoop = () => {
+    if (alarmLoopRef.current) {
+      clearInterval(alarmLoopRef.current);
+      alarmLoopRef.current = null;
+    }
+    setIsAlarmRinging(false);
+    document.title = originalTitleRef.current;
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+  };
+
   const playNotificationSound = () => {
     const type = localStorage.getItem('garneta_alarm_type') || 'default';
     
@@ -540,6 +579,23 @@ function Dashboard() {
   };
 
   return (
+    <>
+      {/* Fase 3 #1: Banner alarm pesanan baru - tetap tampil & berkedip selama belum di-acknowledge admin */}
+      {isAlarmRinging && (
+        <div style={{
+          position: 'sticky', top: 0, zIndex: 999, background: '#DC2626', color: '#fff',
+          padding: '12px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.2)', animation: 'pulse 1s infinite'
+        }}>
+          <span style={{ fontWeight: 'bold', fontSize: '15px' }}>🔔 Ada Pesanan Baru Masuk! Segera cek daftar pesanan di bawah.</span>
+          <button
+            onClick={stopAlarmLoop}
+            style={{ background: '#fff', color: '#DC2626', border: 'none', fontWeight: 'bold', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }}
+          >
+            Sudah Dengar, Berhenti
+          </button>
+        </div>
+      )}
       <div style={{ padding: '40px', background: 'var(--light)', minHeight: '100vh' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
@@ -1145,6 +1201,7 @@ function Dashboard() {
         `}
       </style>
     </div>
+    </>
   );
 }
 
