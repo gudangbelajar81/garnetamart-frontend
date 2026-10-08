@@ -5,6 +5,7 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import CustomerAuth from './CustomerAuth';
+import OrderHistory from './OrderHistory';
 
 // Fix Leaflet Default Icon in React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -58,6 +59,7 @@ function App() {
   const [promoInput, setPromoInput] = useState('');
   const [appliedPromo, setAppliedPromo] = useState('');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isOrderHistoryOpen, setIsOrderHistoryOpen] = useState(false);
   const [showPromoPopup, setShowPromoPopup] = useState(false);
   const [activeBanners, setActiveBanners] = useState([]);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
@@ -374,6 +376,15 @@ function App() {
             {isDarkMode ? '☀️' : '🌙'}
           </button>
           
+          {loggedInCustomer && (
+            <button
+              onClick={() => setIsOrderHistoryOpen(true)}
+              style={{ background: 'var(--light)', color: 'var(--text-main)', border: '1px solid var(--border)', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', padding: '8px 16px', borderRadius: '99px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              📦 Pesanan Saya
+            </button>
+          )}
+
           {loggedInCustomer ? (
             <button
               onClick={() => {
@@ -814,6 +825,13 @@ function App() {
           )}
         </div>
       </div>
+
+      {isOrderHistoryOpen && loggedInCustomer && (
+        <OrderHistory
+          customer={loggedInCustomer}
+          onClose={() => setIsOrderHistoryOpen(false)}
+        />
+      )}
 
       {isAuthModalOpen && (
         <CustomerAuth 
