@@ -28,6 +28,56 @@ function OrderHistory({ customer, onClose }) {
   const [error, setError] = useState('');
   const [expandedId, setExpandedId] = useState(null);
 
+  // State untuk fitur beri-ulasan (review) per item pesanan yang statusnya 'Selesai'
+  const [reviewOpenKey, setReviewOpenKey] = useState(null); // key = `${orderId}-${productId}`
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewMsgMap, setReviewMsgMap] = useState({}); // key -> { type: 'success'|'error', text }
+
+  function toggleReviewForm(key) {
+    if (reviewOpenKey === key) {
+      setReviewOpenKey(null);
+    } else {
+      setReviewOpenKey(key);
+      setReviewRating(5);
+      setReviewComment('');
+    }
+  }
+
+  async function submitReview(order, item) {
+    const key = `${order.id}-${item.product_id}`;
+    setReviewSubmitting(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/reviews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_id: item.product_id,
+          customer_id: customer.id,
+          order_id: order.id,
+          phone: customer.phone,
+          rating: reviewRating,
+          comment: reviewComment,
+        }),
+      });
+      const result = await res.json();
+      if (res.ok && result.success) {
+        setReviewMsgMap(prev => ({ ...prev, [key]: { type: 'success', text: '✅ Ulasan terkirim, terima kasih!' } }));
+        setReviewOpenKey(null);
+      } else if (res.status === 409) {
+        setReviewMsgMap(prev => ({ ...prev, [key]: { type: 'success', text: 'Anda sudah memberi ulasan untuk produk ini.' } }));
+        setReviewOpenKey(null);
+      } else {
+        setReviewMsgMap(prev => ({ ...prev, [key]: { type: 'error', text: result.message || 'Gagal mengirim ulasan.' } }));
+      }
+    } catch {
+      setReviewMsgMap(prev => ({ ...prev, [key]: { type: 'error', text: 'Gagal terhubung ke server.' } }));
+    } finally {
+      setReviewSubmitting(false);
+    }
+  }
+
   useEffect(() => {
     if (!customer || !customer.id || !customer.phone) {
       setError('Sesi member tidak valid. Silakan login ulang.');
@@ -122,6 +172,65 @@ function OrderHistory({ customer, onClose }) {
                       </table>
                     ) : (
                       <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>Rincian item tidak tersedia untuk pesanan ini.</p>
+                    )}
+                    {order.status === 'Selesai' && order.items && order.items.length > 0 && (
+                      <div style={{ marginTop: '12px', borderTop: '1px dashed var(--border)', paddingTop: '10px' }}>
+                        {order.items.map((item, idx) => {
+                          const key = `${order.id}-${item.product_id}`;
+                          const msg = reviewMsgMap[key];
+                          const isOpen = reviewOpenKey === key;
+                          return (
+                            <div key={idx} style={{ marginBottom: '8px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: '12px', color: 'var(--text-main)' }}>{item.product_name}</span>
+                                {!msg && (
+                                  <button
+                                    onClick={() => toggleReviewForm(key)}
+                                    style={{ fontSize: '11px', background: 'var(--primary-light)', color: 'var(--primary)', border: 'none', borderRadius: '8px', padding: '4px 10px', cursor: 'pointer', fontWeight: 'bold' }}
+                                  >
+                                    {isOpen ? 'Batal' : '⭐ Beri Ulasan'}
+                                  </button>
+                                )}
+                              </div>
+
+                              {msg && (
+                                <p style={{ fontSize: '11px', color: msg.type === 'success' ? '#166534' : '#B91C1C', margin: '4px 0 0 0' }}>
+                                  {msg.text}
+                                </p>
+                              )}
+
+                              {isOpen && !msg && (
+                                <div style={{ background: 'var(--light)', borderRadius: '10px', padding: '10px', marginTop: '6px' }}>
+                                  <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+                                    {[1, 2, 3, 4, 5].map(star => (
+                                      <span
+                                        key={star}
+                                        onClick={() => setReviewRating(star)}
+                                        style={{ fontSize: '20px', cursor: 'pointer', color: star <= reviewRating ? '#FACC15' : '#D1D5DB' }}
+                                      >
+                                        ★
+                                      </span>
+                                    ))}
+                                  </div>
+                                  <textarea
+                                    value={reviewComment}
+                                    onChange={(e) => setReviewComment(e.target.value)}
+                                    placeholder="Ceritakan pengalaman Anda dengan produk ini (opsional)..."
+                                    style={{ width: '100%', minHeight: '50px', borderRadius: '8px', border: '1px solid var(--border)', padding: '8px', fontSize: '12px', boxSizing: 'border-box', resize: 'vertical' }}
+                                  />
+                                  <button
+                                    onClick={() => submitReview(order, item)}
+                                    disabled={reviewSubmitting}
+                                    style={{ marginTop: '8px', width: '100%', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px', fontSize: '12px', fontWeight: 'bold', cursor: reviewSubmitting ? 'not-allowed' : 'pointer', opacity: reviewSubmitting ? 0.6 : 1 }}
+                                  >
+                                    {reviewSubmitting ? 'Mengirim...' : 'Kirim Ulasan'}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
                     {order.proof_of_delivery && (
                       <div style={{ marginTop: '10px' }}>
