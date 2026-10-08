@@ -527,6 +527,12 @@ function App() {
                   <h3 className="product-name" style={{ margin: 0 }}>{product.name}</h3>
                   <span style={{ fontSize: '10px', background: '#F3F4F6', padding: '4px 6px', borderRadius: '4px', color: '#4B5563', fontWeight: 'bold' }}>{product.category || 'Umum'}</span>
                 </div>
+                {product.avg_rating && (
+                  <div style={{ marginTop: '4px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ color: '#F59E0B' }}>⭐ {product.avg_rating}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>({product.review_count} ulasan)</span>
+                  </div>
+                )}
                 {product.sales_count > 0 && (
                   <div style={{ marginTop: '8px', fontSize: '12px' }}>
                     <span style={{ color: '#F59E0B', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
