@@ -224,12 +224,15 @@ function App() {
   const formatRp = (num) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(num);
 
   const addToCart = (product) => {
+    // Fase 2 #5: Varian Produk. Kalau produk punya variant_id, kunci cart pakai "productId-variantId"
+    // supaya varian berbeda dari produk yang sama dihitung sebagai baris keranjang terpisah.
+    const cartKey = product.variant_id ? `${product.id}-${product.variant_id}` : String(product.id);
     setCart(prev => {
-      const existing = prev[product.id];
+      const existing = prev[cartKey];
       if (existing) {
-        return { ...prev, [product.id]: { ...existing, qty: existing.qty + 1 } };
+        return { ...prev, [cartKey]: { ...existing, qty: existing.qty + 1 } };
       }
-      return { ...prev, [product.id]: { item: product, qty: 1 } };
+      return { ...prev, [cartKey]: { item: product, qty: 1 } };
     });
   };
 
@@ -333,7 +336,8 @@ function App() {
 
         let text = `Halo GarnetaMart! Saya mau pesan barang ini:\n\n`;
         cartItems.forEach(c => {
-          text += `- ${c.item.name} (${c.qty}x) = Rp${(c.item.price * c.qty)}\n`;
+          const variantLabel = c.item.variant_name ? ` (${c.item.variant_name})` : '';
+          text += `- ${c.item.name}${variantLabel} (${c.qty}x) = Rp${(c.item.price * c.qty)}\n`;
         });
         text += `\nSubtotal: Rp${subtotal}`;
         if (discountAmount > 0) text += `\nDiskon Promo: -Rp${discountAmount}`;
@@ -619,9 +623,9 @@ function App() {
             <>
               <div style={{ display: 'grid', gap: '16px', marginBottom: '24px' }}>
                 {cartItems.map(c => (
-                  <div key={c.item.id} className="cart-item">
+                  <div key={c.item.variant_id ? `${c.item.id}-${c.item.variant_id}` : c.item.id} className="cart-item">
                     <div className="cart-item-info">
-                      <h4>{c.item.name}</h4>
+                      <h4>{c.item.name}{c.item.variant_name ? ` (${c.item.variant_name})` : ''}</h4>
                       <p>{c.qty} x {formatRp(c.item.price)}</p>
                     </div>
                     <div className="cart-item-total">

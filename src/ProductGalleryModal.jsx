@@ -14,6 +14,7 @@ function ProductGalleryModal({ productId, onClose, onAddToCart }) {
   const [error, setError] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [selectedVariant, setSelectedVariant] = useState(null);
 
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL}/api/products/${productId}/detail`)
@@ -21,6 +22,9 @@ function ProductGalleryModal({ productId, onClose, onAddToCart }) {
       .then(result => {
         if (result.success) {
           setProduct(result.data);
+          if (result.data.variants && result.data.variants.length > 0) {
+            setSelectedVariant(result.data.variants[0]);
+          }
         } else {
           setError(result.message || 'Gagal memuat detail produk.');
         }
@@ -115,14 +119,47 @@ function ProductGalleryModal({ productId, onClose, onAddToCart }) {
               )}
 
               <div style={{ marginTop: '14px', fontSize: '22px', fontWeight: 'bold', color: 'var(--primary)' }}>
-                {formatRp(product.price)}
+                {formatRp(selectedVariant ? selectedVariant.price : product.price)}
               </div>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Sisa Stok: {product.stock}</p>
+
+              {product.variants && product.variants.length > 0 && (
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
+                  {product.variants.map(v => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => setSelectedVariant(v)}
+                      disabled={v.stock <= 0}
+                      style={{
+                        fontSize: '13px', fontWeight: '600', padding: '6px 14px', borderRadius: '99px',
+                        border: selectedVariant && selectedVariant.id === v.id ? '2px solid var(--primary)' : '1px solid var(--border)',
+                        background: selectedVariant && selectedVariant.id === v.id ? 'var(--primary)' : 'var(--light)',
+                        color: selectedVariant && selectedVariant.id === v.id ? '#fff' : (v.stock <= 0 ? 'var(--text-muted)' : 'var(--text-main)'),
+                        cursor: v.stock <= 0 ? 'not-allowed' : 'pointer',
+                        opacity: v.stock <= 0 ? 0.5 : 1,
+                      }}
+                    >
+                      {v.variant_name}{v.stock <= 0 ? ' (Habis)' : ''}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                Sisa Stok: {selectedVariant ? selectedVariant.stock : product.stock}
+              </p>
 
               <button
                 className="btn btn-primary"
                 style={{ width: '100%', marginTop: '16px' }}
-                onClick={() => { onAddToCart(product); onClose(); }}
+                disabled={selectedVariant ? selectedVariant.stock <= 0 : product.stock <= 0}
+                onClick={() => {
+                  const productToAdd = selectedVariant
+                    ? { ...product, price: selectedVariant.price, stock: selectedVariant.stock, variant_id: selectedVariant.id, variant_name: selectedVariant.variant_name }
+                    : product;
+                  onAddToCart(productToAdd);
+                  onClose();
+                }}
               >
                 <span>🛒</span> Tambahkan ke Keranjang
               </button>
