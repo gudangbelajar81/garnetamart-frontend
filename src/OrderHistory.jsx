@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import LiveTrackingModal from './LiveTrackingModal';
 
 // Helper format Rupiah, konsisten dengan yang dipakai di Storefront/Dashboard
 function formatRp(num) {
@@ -27,6 +28,7 @@ function OrderHistory({ customer, onClose }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [expandedId, setExpandedId] = useState(null);
+  const [trackingOrderId, setTrackingOrderId] = useState(null);
 
   // State untuk fitur beri-ulasan (review) per item pesanan yang statusnya 'Selesai'
   const [reviewOpenKey, setReviewOpenKey] = useState(null); // key = `${orderId}-${productId}`
@@ -242,6 +244,38 @@ function OrderHistory({ customer, onClose }) {
                         />
                       </div>
                     )}
+
+                    {/* Fase 3 #3 & #4: Tombol Lacak Kurir Live & ETA */}
+                    {(order.status === 'Sedang Diantar' || order.status === 'Dikirim' || order.courier_id) && (
+                      <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px dashed var(--border)' }}>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTrackingOrderId(order.id);
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '10px 14px',
+                            background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '10px',
+                            fontWeight: 'bold',
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            boxShadow: '0 4px 10px rgba(37,99,235,0.25)'
+                          }}
+                        >
+                          <span style={{ fontSize: '16px' }}>🗺️</span>
+                          <span>Lacak Kurir Live & Estimasi Tiba (ETA)</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -249,6 +283,14 @@ function OrderHistory({ customer, onClose }) {
           })}
         </div>
       </div>
+
+      {/* Fase 3 #3 & #4: Modal Live Tracking Kurir */}
+      {trackingOrderId && (
+        <LiveTrackingModal
+          orderId={trackingOrderId}
+          onClose={() => setTrackingOrderId(null)}
+        />
+      )}
     </div>
   );
 }

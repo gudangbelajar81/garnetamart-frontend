@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
 import ProductGalleryManager from './ProductGalleryManager';
 import ProductVariantManager from './ProductVariantManager';
+import LiveTrackingModal from './LiveTrackingModal';
+import { printReceiptBluetooth } from './utils/bluetoothPrinter';
 
 // Helper: bentuk header Authorization dari token admin yang tersimpan di localStorage.
 // Dipakai di semua fetch() yang menghantam endpoint terproteksi verifyAdminToken/verifyStaffToken.
@@ -31,6 +33,8 @@ function Dashboard() {
   const [couriers, setCouriers] = useState([]);
   const [activeTab, setActiveTab] = useState('orders');
   const [printOrder, setPrintOrder] = useState(null);
+  const [trackingOrderId, setTrackingOrderId] = useState(null);
+  const [printingOrderId, setPrintingOrderId] = useState(null);
   
   // State untuk Tambah Kurir Baru
   const [newCourierName, setNewCourierName] = useState('');
@@ -283,6 +287,42 @@ function Dashboard() {
       if (result.success) fetchOrders();
       else alert(result.message);
     } catch(err) { alert("Gagal menugaskan kurir."); }
+  };
+
+  // Fase 3 #6: Auto-Assign Kurir Otomatis (Least-Loaded / Nearest)
+  const handleAutoAssignCourier = async (orderId) => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${orderId}/auto-assign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeader() }
+      });
+      const result = await res.json();
+      if (result.success) {
+        alert(`✅ ${result.message}`);
+        fetchOrders();
+      } else {
+        alert(`⚠️ ${result.message || 'Gagal auto-assign kurir'}`);
+      }
+    } catch(err) {
+      alert("Gagal melakukan auto-assign kurir.");
+    }
+  };
+
+  // Fase 3 #5: Cetak Struk Bluetooth POS Thermal dari Admin
+  const handlePrintReceiptAdmin = async (order) => {
+    setPrintingOrderId(order.id);
+    try {
+      const res = await printReceiptBluetooth(order, order.items || []);
+      if (res.success) {
+        alert(`✅ Struk Order #${order.id} berhasil dicetak ke Printer Bluetooth!`);
+      } else {
+        alert(`⚠️ Gagal mencetak: ${res.error || 'Periksa koneksi printer Bluetooth'}`);
+      }
+    } catch(err) {
+      alert(`⚠️ Error cetak: ${err.message}`);
+    } finally {
+      setPrintingOrderId(null);
+    }
   };
 
   const handleLogout = () => {
@@ -702,7 +742,25 @@ function Dashboard() {
                           }} style={{ padding: '6px 12px', background: '#3B82F6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
                             🛵 Tugaskan
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAutoAssignCourier(order.id)}
+                            title="Tugaskan otomatis ke kurir aktif paling senggang / terdekat"
+                            style={{ padding: '6px 10px', background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
+                          >
+                            ⚡ Auto
+                          </button>
                         </div>
+                      )}
+                      {(order.courier_id || order.status === 'Sedang Diantar' || order.status === 'Dikirim') && (
+                        <button
+                          type="button"
+                          onClick={() => setTrackingOrderId(order.id)}
+                          title="Lacak posisi GPS kurir real-time di peta"
+                          style={{ padding: '6px 12px', background: '#2563EB', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
+                        >
+                          🗺️ Lacak
+                        </button>
                       )}
                       {order.status === 'Dikirim' && (
                         <button onClick={() => handleUpdateOrderStatus(order.id, 'Selesai')} style={{ padding: '6px 12px', background: '#22C55E', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
@@ -724,6 +782,15 @@ function Dashboard() {
                       </button>
                       <button onClick={() => handlePrint(order)} style={{ padding: '6px 12px', background: '#4B5563', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
                         🖨️ Cetak
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePrintReceiptAdmin(order)}
+                        disabled={printingOrderId === order.id}
+                        title="Cetak langsung ke Printer Thermal Bluetooth 58mm"
+                        style={{ padding: '6px 12px', background: printingOrderId === order.id ? '#9CA3AF' : '#0D9488', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
+                      >
+                        {printingOrderId === order.id ? '⏳ Cetak...' : '🖨️ BT POS'}
                       </button>
                     </td>
                   </tr>
@@ -1200,6 +1267,14 @@ function Dashboard() {
           }
         `}
       </style>
+
+      {/* Fase 3 #3 & #4: Modal Live Tracking Kurir */}
+      {trackingOrderId && (
+        <LiveTrackingModal
+          orderId={trackingOrderId}
+          onClose={() => setTrackingOrderId(null)}
+        />
+      )}
     </div>
     </>
   );

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { printReceiptBluetooth, isBluetoothSupported } from './utils/bluetoothPrinter';
 
 function CourierDashboard() {
   const [orders, setOrders] = useState([]);
@@ -8,6 +9,9 @@ function CourierDashboard() {
   const [uploadingOrderId, setUploadingOrderId] = useState(null);
   const [waModalOrder, setWaModalOrder] = useState(null);
   const [customWaText, setCustomWaText] = useState('');
+  const [gpsActive, setGpsActive] = useState(true);
+  const [gpsStatus, setGpsStatus] = useState({ lat: null, lng: null, lastUpdated: null, error: null, isSending: false });
+  const [printingOrderId, setPrintingOrderId] = useState(null);
   const navigate = useNavigate();
   
   const courierId = localStorage.getItem('courier_id');
@@ -44,6 +48,81 @@ function CourierDashboard() {
       console.error("Gagal mengambil data tugas");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Fase 3 #3: Reporter Lokasi GPS Kurir Real-Time
+  const reportLocation = (coords) => {
+    if (!coords || !courierId) return;
+    const courierToken = localStorage.getItem('courier_token');
+    if (!courierToken) return;
+
+    setGpsStatus(prev => ({ ...prev, isSending: true }));
+    fetch(`${import.meta.env.VITE_API_URL}/api/couriers/${courierId}/location`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${courierToken}`
+      },
+      body: JSON.stringify({ lat: coords.latitude, lng: coords.longitude })
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setGpsStatus({
+            lat: coords.latitude.toFixed(6),
+            lng: coords.longitude.toFixed(6),
+            lastUpdated: new Date().toLocaleTimeString('id-ID'),
+            error: null,
+            isSending: false
+          });
+        } else {
+          setGpsStatus(prev => ({ ...prev, isSending: false, error: data.message }));
+        }
+      })
+      .catch(err => {
+        setGpsStatus(prev => ({ ...prev, isSending: false, error: err.message }));
+      });
+  };
+
+  const triggerGpsSync = () => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setGpsStatus(prev => ({ ...prev, error: "Browser tidak mendukung GPS Geolocation" }));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => reportLocation(pos.coords),
+      (err) => setGpsStatus(prev => ({ ...prev, error: `Sinyal GPS lemah/ditolak: ${err.message}` })),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+    );
+  };
+
+  // Sinkronisasi GPS otomatis tiap 15 detik jika GPS aktif dan kurir sedang login
+  useEffect(() => {
+    if (!gpsActive || !courierId || typeof navigator === 'undefined' || !navigator.geolocation) return;
+
+    triggerGpsSync();
+    const gpsInterval = setInterval(() => {
+      triggerGpsSync();
+    }, 15000);
+
+    return () => clearInterval(gpsInterval);
+  }, [gpsActive, courierId]);
+
+  // Fase 3 #5: Cetak Struk Bluetooth POS Thermal
+  const handlePrintReceipt = async (order) => {
+    setPrintingOrderId(order.id);
+    try {
+      const res = await printReceiptBluetooth(order);
+      if (res.success) {
+        alert(`✅ Struk Order #${order.id} berhasil dicetak!`);
+      } else {
+        alert(`⚠️ Gagal mencetak struk: ${res.error || 'Periksa koneksi printer Bluetooth'}`);
+      }
+    } catch (err) {
+      alert(`⚠️ Error cetak: ${err.message}`);
+    } finally {
+      setPrintingOrderId(null);
     }
   };
 
@@ -154,6 +233,43 @@ function CourierDashboard() {
         <button onClick={handleLogout} style={{ padding: '8px 16px', background: '#EF4444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}>Keluar</button>
       </div>
 
+      {/* Fase 3 #3: Live GPS Tracking Kurir Bar */}
+      <div style={{ background: 'white', padding: '14px 18px', borderRadius: '16px', marginBottom: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: gpsActive ? (gpsStatus.lat ? '#10B981' : '#F59E0B') : '#9CA3AF', boxShadow: gpsActive && gpsStatus.lat ? '0 0 8px #10B981' : 'none' }}></div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#111827' }}>
+                {gpsActive ? (gpsStatus.lat ? '📍 GPS Live Aktif' : '📍 Mencari Sinyal GPS...') : '📍 GPS Dimatikan'}
+              </span>
+              {gpsStatus.isSending && <span style={{ fontSize: '11px', color: '#3B82F6' }}>Mengirim...</span>}
+            </div>
+            <p style={{ margin: 0, fontSize: '11px', color: '#6B7280' }}>
+              {gpsStatus.error
+                ? `⚠️ ${gpsStatus.error}`
+                : gpsStatus.lat
+                ? `Posisi: ${gpsStatus.lat}, ${gpsStatus.lng} • Update: ${gpsStatus.lastUpdated}`
+                : 'Lokasi Anda disiarkan ke pelanggan & toko'}
+            </p>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={triggerGpsSync}
+            title="Kirim posisi GPS sekarang"
+            style={{ padding: '6px 12px', background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+          >
+            🔄 Sinkron GPS
+          </button>
+          <button
+            onClick={() => setGpsActive(!gpsActive)}
+            style={{ padding: '6px 12px', background: gpsActive ? '#FEE2E2' : '#DCFCE7', color: gpsActive ? '#DC2626' : '#16A34A', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+          >
+            {gpsActive ? 'Matikan' : 'Aktifkan'}
+          </button>
+        </div>
+      </div>
+
       <div style={{ background: 'white', padding: '20px', borderRadius: '16px', marginBottom: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <p style={{ margin: 0, color: '#6B7280', fontSize: '14px' }}>Pendapatan Ongkir (Selesai)</p>
@@ -183,12 +299,20 @@ function CourierDashboard() {
               <h3 style={{ margin: '0 0 4px 0' }}>{order.customer_name}</h3>
               <p style={{ margin: '0 0 12px 0', color: '#4B5563', fontSize: '14px', lineHeight: '1.4' }}>📍 {order.customer_address}</p>
               
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                <button onClick={() => { setWaModalOrder(order); setCustomWaText(''); }} style={{ flex: 1, padding: '10px', background: '#25D366', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+                <button onClick={() => { setWaModalOrder(order); setCustomWaText(''); }} style={{ padding: '10px 6px', background: '#25D366', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
                   💬 Chat WA
                 </button>
-                <button onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.customer_address)}`, '_blank')} style={{ flex: 1, padding: '10px', background: '#E5E7EB', color: '#374151', border: 'none', borderRadius: '8px', fontWeight: 'bold', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-                  🗺️ Buka Peta
+                <button onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.customer_address)}`, '_blank')} style={{ padding: '10px 6px', background: '#E5E7EB', color: '#374151', border: 'none', borderRadius: '8px', fontWeight: 'bold', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
+                  🗺️ Peta
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePrintReceipt(order)}
+                  disabled={printingOrderId === order.id}
+                  style={{ padding: '10px 6px', background: printingOrderId === order.id ? '#9CA3AF' : '#3B82F6', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}
+                >
+                  {printingOrderId === order.id ? '⏳ Cetak...' : '🖨️ Struk'}
                 </button>
               </div>
 

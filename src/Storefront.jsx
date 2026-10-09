@@ -329,7 +329,9 @@ function App() {
           shipping_fee: finalShipping,
           transport_type: transportType,
           customer_id: loggedInCustomer ? loggedInCustomer.id : null,
-          cart_items: cartItems
+          cart_items: cartItems,
+          destination_lat: deliveryCoords ? deliveryCoords.lat : null,
+          destination_lng: deliveryCoords ? deliveryCoords.lng : null
         })
       });
 
