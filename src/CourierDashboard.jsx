@@ -6,6 +6,8 @@ function CourierDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUploadingProof, setIsUploadingProof] = useState(false);
   const [uploadingOrderId, setUploadingOrderId] = useState(null);
+  const [waModalOrder, setWaModalOrder] = useState(null);
+  const [customWaText, setCustomWaText] = useState('');
   const navigate = useNavigate();
   
   const courierId = localStorage.getItem('courier_id');
@@ -43,6 +45,32 @@ function CourierDashboard() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Fase 3 #2: Template WA Cerdas Kurir -> Pembeli
+  const sendWaMessage = (order, templateType, customMsg = '') => {
+    if (!order || !order.customer_phone) return;
+    const rawPhone = String(order.customer_phone).replace(/[^0-9]/g, '');
+    const cleanPhone = rawPhone.startsWith('0') ? '62' + rawPhone.substring(1) : rawPhone;
+    const senderName = courierName || 'Kurir';
+
+    let msg = '';
+    if (templateType === 'otw') {
+      msg = `Halo Kak *${order.customer_name}*, saya *${senderName}* dari *GarnetaMart* 🚚\n\nSaat ini saya sedang dalam perjalanan menuju alamat Kakak untuk mengantar pesanan (Order *#${order.id}*).\n📍 *Alamat:* ${order.customer_address}\n💵 *Total Tagihan:* ${formatRp(order.total_amount)}\n\nMohon nomor HP tetap aktif ya Kak. Sampai jumpa sebentar lagi! 🙏`;
+    } else if (templateType === 'arrived') {
+      msg = `Halo Kak *${order.customer_name}*, saya *${senderName}* dari *GarnetaMart* 🚚\n\nSaya sudah tiba di lokasi / depan rumah untuk mengantar pesanan Order *#${order.id}*.\nMohon bantuannya untuk keluar atau membukakan pagar ya Kak. Terima kasih! 🏡`;
+    } else if (templateType === 'cod') {
+      msg = `Halo Kak *${order.customer_name}*, saya *${senderName}* dari *GarnetaMart* 🚚\n\nMengingatkan untuk pesanan Order *#${order.id}*, total tagihannya adalah *${formatRp(order.total_amount)}*.\nMohon disiapkan uang pas jika memungkinkan ya Kak. Terima kasih! 💵`;
+    } else if (templateType === 'custom') {
+      msg = customMsg.trim() ? `Halo Kak *${order.customer_name}* (Order *#${order.id}*),\n\n${customMsg.trim()}\n\n— *${senderName}* (GarnetaMart)` : '';
+    }
+
+    const url = msg 
+      ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/${cleanPhone}`;
+    window.open(url, '_blank');
+    setWaModalOrder(null);
+    setCustomWaText('');
   };
 
   const handleCompleteOrder = async (orderId) => {
@@ -156,7 +184,7 @@ function CourierDashboard() {
               <p style={{ margin: '0 0 12px 0', color: '#4B5563', fontSize: '14px', lineHeight: '1.4' }}>📍 {order.customer_address}</p>
               
               <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                <button onClick={() => window.open(`https://wa.me/${order.customer_phone.startsWith('0') ? '62'+order.customer_phone.substring(1) : order.customer_phone}`, '_blank')} style={{ flex: 1, padding: '10px', background: '#25D366', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                <button onClick={() => { setWaModalOrder(order); setCustomWaText(''); }} style={{ flex: 1, padding: '10px', background: '#25D366', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                   💬 Chat WA
                 </button>
                 <button onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.customer_address)}`, '_blank')} style={{ flex: 1, padding: '10px', background: '#E5E7EB', color: '#374151', border: 'none', borderRadius: '8px', fontWeight: 'bold', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
@@ -188,6 +216,82 @@ function CourierDashboard() {
               </label>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Fase 3 #2: Modal Template WhatsApp Kurir -> Pembeli */}
+      {waModalOrder && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', boxSizing: 'border-box' }}>
+          <div style={{ background: 'white', borderRadius: '16px', width: '100%', maxWidth: '440px', padding: '20px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #E5E7EB', paddingBottom: '12px' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', color: '#111827' }}>💬 Pilih Pesan WhatsApp</h3>
+                <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#6B7280' }}>
+                  Ke: <b>{waModalOrder.customer_name}</b> (Order #{waModalOrder.id})
+                </p>
+              </div>
+              <button onClick={() => setWaModalOrder(null)} style={{ background: 'transparent', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#9CA3AF' }}>✖</button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+              <button
+                type="button"
+                onClick={() => sendWaMessage(waModalOrder, 'otw')}
+                style={{ textAlign: 'left', padding: '12px', background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: '10px', cursor: 'pointer' }}
+              >
+                <div style={{ fontWeight: 'bold', color: '#166534', fontSize: '14px', marginBottom: '4px' }}>🛵 1. Sedang Menuju Lokasi (OTW)</div>
+                <div style={{ fontSize: '12px', color: '#15803D' }}>Beri tahu pembeli bahwa paket sedang dalam perjalanan & minta nomor HP tetap aktif.</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => sendWaMessage(waModalOrder, 'arrived')}
+                style={{ textAlign: 'left', padding: '12px', background: '#EFF6FF', border: '1px solid #93C5FD', borderRadius: '10px', cursor: 'pointer' }}
+              >
+                <div style={{ fontWeight: 'bold', color: '#1E40AF', fontSize: '14px', marginBottom: '4px' }}>🏡 2. Sudah Sampai di Depan Rumah</div>
+                <div style={{ fontSize: '12px', color: '#1D4ED8' }}>Beri tahu bahwa Anda sudah di depan pagar/rumah & mohon bantuan dibukakan.</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => sendWaMessage(waModalOrder, 'cod')}
+                style={{ textAlign: 'left', padding: '12px', background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '10px', cursor: 'pointer' }}
+              >
+                <div style={{ fontWeight: 'bold', color: '#92400E', fontSize: '14px', marginBottom: '4px' }}>💵 3. Pengingat Tagihan ({formatRp(waModalOrder.total_amount)})</div>
+                <div style={{ fontSize: '12px', color: '#B45309' }}>Ingatkan jumlah uang pas yang perlu disiapkan untuk pembayaran COD.</div>
+              </button>
+            </div>
+
+            <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '12px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#374151', marginBottom: '6px' }}>
+                Atau Ketik Pesan Kustom:
+              </label>
+              <textarea
+                value={customWaText}
+                onChange={(e) => setCustomWaText(e.target.value)}
+                placeholder="Contoh: Maaf Kak, patokan rumah dekat pohon mangga sebelah mana ya?"
+                rows={3}
+                style={{ width: '100%', padding: '8px 10px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', marginBottom: '8px', resize: 'vertical' }}
+              />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => sendWaMessage(waModalOrder, 'custom', customWaText)}
+                  disabled={!customWaText.trim()}
+                  style={{ flex: 2, padding: '10px', background: customWaText.trim() ? '#25D366' : '#9CA3AF', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '13px', cursor: customWaText.trim() ? 'pointer' : 'not-allowed' }}
+                >
+                  🚀 Kirim Pesan Kustom
+                </button>
+                <button
+                  type="button"
+                  onClick={() => sendWaMessage(waModalOrder, 'blank')}
+                  style={{ flex: 1, padding: '10px', background: '#E5E7EB', color: '#374151', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer' }}
+                >
+                  Chat Kosong
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
