@@ -7,6 +7,8 @@ import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import CustomerAuth from './CustomerAuth';
 import OrderHistory from './OrderHistory';
 import ProductGalleryModal from './ProductGalleryModal';
+import DigitalInvoiceModal from './DigitalInvoiceModal';
+import LegalModal from './LegalModal';
 
 // Fix Leaflet Default Icon in React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -59,9 +61,17 @@ function App() {
   const [isDarkMode, setIsDarkMode] = useState(localStorage.getItem('garneta_darkmode') === 'true');
   const [promoInput, setPromoInput] = useState('');
   const [appliedPromo, setAppliedPromo] = useState('');
+  const [appliedPromoData, setAppliedPromoData] = useState(null);
+  const [isCheckingPromo, setIsCheckingPromo] = useState(false);
+  const [paymentConfig, setPaymentConfig] = useState({ midtrans_enabled: false, midtrans_client_key: '', qris_manual_enabled: true });
+  const [customerPoints, setCustomerPoints] = useState(0);
+  const [usePoints, setUsePoints] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isOrderHistoryOpen, setIsOrderHistoryOpen] = useState(false);
   const [galleryProductId, setGalleryProductId] = useState(null); // Fase 2 #4: ID produk yang galerinya sedang dibuka (null = tutup)
+  const [invoiceOrderId, setInvoiceOrderId] = useState(null); // Fase 5: Digital Invoice Modal
+  const [legalModalTab, setLegalModalTab] = useState(null); // Fase 5: Privacy Policy & Terms Modal
 
   // Fase 2 #6: OG Meta per Produk. Kalau URL punya query ?produk=ID (datang dari link share WA/FB
   // yang diredirect backend endpoint /produk/:id), otomatis buka modal detail produk itu.
@@ -72,6 +82,46 @@ function App() {
       setGalleryProductId(Number(produkId));
     }
   }, []);
+
+  // Fase 4 #1: Load status pembayaran (Midtrans switch & QRIS) dan load Snap.js jika aktif
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_API_URL}/api/settings/payment`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.data) {
+          setPaymentConfig(data.data);
+          if (data.data.midtrans_enabled && data.data.midtrans_client_key) {
+            const scriptId = 'midtrans-snap-script';
+            if (!document.getElementById(scriptId)) {
+              const script = document.createElement('script');
+              script.id = scriptId;
+              script.src = 'https://app.midtrans.com/snap/snap.js';
+              script.setAttribute('data-client-key', data.data.midtrans_client_key);
+              document.body.appendChild(script);
+            }
+          }
+        }
+      })
+      .catch(err => console.warn("Gagal memuat payment settings:", err));
+  }, []);
+
+  // Fase 4 #2: Load loyalty points pelanggan jika sudah login
+  useEffect(() => {
+    if (loggedInCustomer && loggedInCustomer.id) {
+      fetch(`${import.meta.env.VITE_API_URL}/api/customers/${loggedInCustomer.id}/points`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.customer) {
+            setCustomerPoints(data.customer.loyalty_points || 0);
+          }
+        })
+        .catch(err => console.warn("Gagal memuat loyalty points:", err));
+    } else {
+      setCustomerPoints(0);
+      setUsePoints(false);
+    }
+  }, [loggedInCustomer]);
+
   const [showPromoPopup, setShowPromoPopup] = useState(false);
   const [activeBanners, setActiveBanners] = useState([]);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
@@ -250,21 +300,57 @@ function App() {
   const totalItems = cartItems.reduce((sum, c) => sum + c.qty, 0);
   const subtotal = cartItems.reduce((sum, c) => sum + (c.item.price * c.qty), 0);
 
-  // LOGIKA DISKON MARKETING DINAMIS
+  // LOGIKA DISKON MARKETING DINAMIS (Fase 4: Database-Driven Voucher)
   let discountAmount = 0;
   let shippingDiscount = 0;
 
-  if (appliedPromo && DAFTAR_PROMO[appliedPromo]) {
-    const promo = DAFTAR_PROMO[appliedPromo];
-    if (subtotal >= promo.min_belanja) {
-      if (promo.tipe === 'persen') discountAmount = subtotal * promo.nilai;
-      if (promo.tipe === 'nominal') discountAmount = promo.nilai;
-      if (promo.tipe === 'ongkir') shippingDiscount = shippingCost;
+  if (appliedPromoData && appliedPromoData.discount_amount) {
+    if (appliedPromoData.discount_type === 'ongkir') {
+      shippingDiscount = Math.min(shippingCost, appliedPromoData.discount_amount);
+    } else {
+      discountAmount = appliedPromoData.discount_amount;
     }
   }
 
-  const finalShipping = shippingCost - shippingDiscount;
-  const grandTotal = subtotal - discountAmount + finalShipping;
+  // LOGIKA POTONGAN POIN LOYALITAS (Fase 4 #2)
+  let pointsDiscount = 0;
+  if (usePoints && customerPoints > 0) {
+    const maxRedeem = Math.min(customerPoints, Math.max(0, subtotal - discountAmount));
+    pointsDiscount = maxRedeem;
+  }
+
+  const finalShipping = Math.max(0, shippingCost - shippingDiscount);
+  const grandTotal = Math.max(0, subtotal - discountAmount - pointsDiscount + finalShipping);
+
+  const handleApplyPromo = async () => {
+    if (!promoInput.trim()) return alert("Silakan masukkan kode voucher!");
+    setIsCheckingPromo(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/promo/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: promoInput.trim().toUpperCase(),
+          subtotal,
+          shipping_cost: shippingCost
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.promo) {
+        setAppliedPromoData(data.promo);
+        setAppliedPromo(data.promo.code);
+        alert(`✅ ${data.message}`);
+      } else {
+        setAppliedPromoData(null);
+        setAppliedPromo('');
+        alert(`⚠️ ${data.message || 'Kode promo tidak valid'}`);
+      }
+    } catch(err) {
+      alert("Gagal memvalidasi kode promo.");
+    } finally {
+      setIsCheckingPromo(false);
+    }
+  };
 
   // LOGIKA PENCARIAN & FILTER KATEGORI
   let filteredProducts = products.filter(product => {
@@ -331,7 +417,11 @@ function App() {
           customer_id: loggedInCustomer ? loggedInCustomer.id : null,
           cart_items: cartItems,
           destination_lat: deliveryCoords ? deliveryCoords.lat : null,
-          destination_lng: deliveryCoords ? deliveryCoords.lng : null
+          destination_lng: deliveryCoords ? deliveryCoords.lng : null,
+          payment_method: paymentMethod,
+          points_used: pointsDiscount,
+          discount_amount: discountAmount + pointsDiscount,
+          promo_code: appliedPromoData ? appliedPromoData.code : null
         })
       });
 
@@ -340,10 +430,50 @@ function App() {
       if (result.success) {
         setCart({});
         setShowQrisModal(false);
+
+        // Fase 4 #1: Integrasi Midtrans Snap Popup
+        if (paymentMethod === 'midtrans') {
+          setIsProcessingPayment(true);
+          try {
+            const snapRes = await fetch(`${import.meta.env.VITE_API_URL}/api/payment/midtrans/snap-token`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ order_id: result.order_id })
+            });
+            const snapData = await snapRes.json();
+            if (snapData.success && snapData.snap_token && typeof window !== 'undefined' && window.snap) {
+              window.snap.pay(snapData.snap_token, {
+                onSuccess: function() {
+                  alert("🎉 Pembayaran Midtrans Berhasil! Pesanan Anda segera disiapkan.");
+                  setInvoiceOrderId(result.order_id);
+                },
+                onPending: function() {
+                  alert("⏳ Pembayaran pending. Silakan selesaikan pembayaran sesuai instruksi.");
+                  setInvoiceOrderId(result.order_id);
+                },
+                onError: function() {
+                  alert("⚠️ Pembayaran gagal atau dibatalkan.");
+                },
+                onClose: function() {
+                  alert("Sesi pembayaran ditutup. Anda dapat melihat status di Pesanan Saya.");
+                }
+              });
+              setIsProcessingPayment(false);
+              return;
+            } else if (snapData.redirect_url) {
+              window.location.href = snapData.redirect_url;
+              return;
+            }
+          } catch (e) {
+            console.error("Gagal membuka Snap Midtrans:", e);
+          } finally {
+            setIsProcessingPayment(false);
+          }
+        }
+
         const waNum = ADMIN_WA_NUMBER;
-        
         let paymentText = paymentMethod === 'qris' 
-          ? `Metode Pembayaran: *QRIS*\n_Saya akan melampirkan bukti transfer di pesan ini._` 
+          ? `Metode Pembayaran: *QRIS Manual*\n_Saya akan melampirkan bukti transfer di pesan ini._` 
           : `Metode Pembayaran: *Bayar Tunai (COD)*`;
 
         let text = `Halo GarnetaMart! Saya mau pesan barang ini:\n\n`;
@@ -353,6 +483,7 @@ function App() {
         });
         text += `\nSubtotal: Rp${subtotal}`;
         if (discountAmount > 0) text += `\nDiskon Promo: -Rp${discountAmount}`;
+        if (pointsDiscount > 0) text += `\nPotongan Poin: -Rp${pointsDiscount}`;
         text += `\nOngkir (${distanceKm.toFixed(1)}Km): Rp${finalShipping}`;
         text += `\n*TOTAL: Rp${grandTotal}*\n`;
         text += `\nDikirim ke: ${customerInfo.name} - ${customerInfo.address}\n`;
@@ -360,7 +491,7 @@ function App() {
 
         const url = `https://wa.me/${waNum}?text=${encodeURIComponent(text)}`;
         window.open(url, '_blank');
-        alert("Pesanan berhasil dibuat! Silakan lanjut di WhatsApp.");
+        setInvoiceOrderId(result.order_id);
       } else {
         alert("Gagal membuat pesanan: " + result.message);
       }
@@ -647,34 +778,52 @@ function App() {
                 ))}
               </div>
 
-              {/* Promo Input */}
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+              {/* Promo Input (Fase 4: Database-Driven) */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
                 <input
                   type="text"
-                  placeholder="Kode Voucher (Contoh: SUPER50)"
+                  placeholder="Kode Voucher (Contoh: HEMAT10)"
                   style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-main)', textTransform: 'uppercase' }}
                   value={promoInput}
                   onChange={e => setPromoInput(e.target.value)}
                 />
-                <button onClick={() => {
-                  const upperCode = promoInput.toUpperCase();
-                  if (DAFTAR_PROMO[upperCode]) {
-                    const promo = DAFTAR_PROMO[upperCode];
-                    if (subtotal >= promo.min_belanja) {
-                      setAppliedPromo(upperCode);
-                      alert(promo.pesan);
-                    } else {
-                      setAppliedPromo('');
-                      alert(`Gagal: Minimal belanja untuk kode ini adalah ${formatRp(promo.min_belanja)}`);
-                    }
-                  } else {
-                    setAppliedPromo('');
-                    alert('Kode Voucher tidak valid!');
-                  }
-                }} style={{ padding: '0 16px', background: 'var(--dark)', color: 'var(--light)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                  Gunakan
+                <button
+                  type="button"
+                  onClick={handleApplyPromo}
+                  disabled={isCheckingPromo}
+                  style={{ padding: '0 16px', background: 'var(--dark)', color: 'var(--light)', border: 'none', borderRadius: '8px', cursor: isCheckingPromo ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+                >
+                  {isCheckingPromo ? 'Cek...' : 'Gunakan'}
                 </button>
               </div>
+              {appliedPromoData && (
+                <div style={{ marginBottom: '16px', padding: '10px 14px', background: '#DCFCE7', color: '#166534', borderRadius: '8px', fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>✅ Voucher <b>{appliedPromoData.code}</b> aktif! Hemat {formatRp(discountAmount || shippingDiscount)}</span>
+                  <button onClick={() => { setAppliedPromoData(null); setAppliedPromo(''); }} style={{ background: 'transparent', border: 'none', color: '#DC2626', cursor: 'pointer', fontWeight: 'bold' }}>Hapus</button>
+                </div>
+              )}
+
+              {/* Fase 4 #2: Poin Loyalitas Pelanggan */}
+              {loggedInCustomer && customerPoints > 0 && (
+                <div style={{ background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '12px', padding: '12px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#92400E' }}>
+                      ⭐ Saldo Poin: {customerPoints.toLocaleString('id-ID')} Poin
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#B45309' }}>
+                      Tukarkan poin untuk potongan belanja (1 Poin = Rp 1)
+                    </div>
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 'bold', color: '#78350F', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={usePoints}
+                      onChange={(e) => setUsePoints(e.target.checked)}
+                    />
+                    Gunakan Poin
+                  </label>
+                </div>
+              )}
 
               {/* Formulir Pengiriman dengan Peta */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '10px' }}>
@@ -787,6 +936,12 @@ function App() {
                     <span>-{formatRp(discountAmount)}</span>
                   </div>
                 )}
+                {pointsDiscount > 0 && (
+                  <div className="summary-row" style={{ color: '#D97706' }}>
+                    <span>Potongan Poin</span>
+                    <span>-{formatRp(pointsDiscount)}</span>
+                  </div>
+                )}
                 <div className="summary-row">
                   <span>Ongkos Kirim ({distanceKm.toFixed(1)} Km)</span>
                   <span style={{ textDecoration: shippingDiscount > 0 ? 'line-through' : 'none' }}>{formatRp(shippingCost)}</span>
@@ -803,10 +958,28 @@ function App() {
                 </div>
               </div>
 
-              {/* Opsi Metode Pembayaran (Dipindah ke bawah Total Bayar) */}
+              {/* Opsi Metode Pembayaran (Fase 4: Dinamis Midtrans/QRIS/COD) */}
               <div style={{ marginTop: '16px', padding: '16px', borderRadius: '12px', border: '1px solid #10B981', background: 'var(--card)' }}>
                 <h4 style={{ marginBottom: '12px' }}>💳 Metode Pembayaran</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {paymentConfig.midtrans_enabled && (
+                    <label style={{ padding: '12px', border: paymentMethod === 'midtrans' ? '2px solid #6366F1' : '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', background: paymentMethod === 'midtrans' ? '#EEF2FF' : 'transparent', transition: 'all 0.2s' }}>
+                      <input type="radio" name="payment" value="midtrans" checked={paymentMethod === 'midtrans'} onChange={() => setPaymentMethod('midtrans')} style={{ width: '18px', height: '18px', accentColor: '#6366F1' }} />
+                      <div>
+                        <div style={{ fontWeight: 'bold', color: '#4338CA' }}>⚡ Pembayaran Otomatis (Midtrans)</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>QRIS Otomatis, GoPay, ShopeePay & Virtual Account (Verifikasi Langsung)</div>
+                      </div>
+                    </label>
+                  )}
+                  {paymentConfig.qris_manual_enabled && (
+                    <label style={{ padding: '12px', border: paymentMethod === 'qris' ? '2px solid #3B82F6' : '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', background: paymentMethod === 'qris' ? '#EFF6FF' : 'transparent', transition: 'all 0.2s' }}>
+                      <input type="radio" name="payment" value="qris" checked={paymentMethod === 'qris'} onChange={() => setPaymentMethod('qris')} style={{ width: '18px', height: '18px', accentColor: '#3B82F6' }} />
+                      <div>
+                        <div style={{ fontWeight: 'bold', color: '#1D4ED8' }}>📱 Transfer QRIS Manual (Hemat Biaya)</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Scan QRIS statis, konfirmasi via WhatsApp</div>
+                      </div>
+                    </label>
+                  )}
                   <label style={{ padding: '12px', border: paymentMethod === 'cod' ? '2px solid #10B981' : '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', background: paymentMethod === 'cod' ? '#ECFDF5' : 'transparent', transition: 'all 0.2s' }}>
                     <input type="radio" name="payment" value="cod" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} style={{ width: '18px', height: '18px', accentColor: '#10B981' }} />
                     <div>
@@ -814,18 +987,12 @@ function App() {
                       <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Bayar langsung ke kurir saat barang sampai</div>
                     </div>
                   </label>
-                  <label style={{ padding: '12px', border: paymentMethod === 'qris' ? '2px solid #3B82F6' : '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', background: paymentMethod === 'qris' ? '#EFF6FF' : 'transparent', transition: 'all 0.2s' }}>
-                    <input type="radio" name="payment" value="qris" checked={paymentMethod === 'qris'} onChange={() => setPaymentMethod('qris')} style={{ width: '18px', height: '18px', accentColor: '#3B82F6' }} />
-                    <div>
-                      <div style={{ fontWeight: 'bold', color: '#1D4ED8' }}>📱 Transfer QRIS (Bebas Biaya)</div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Gopay, OVO, ShopeePay, M-Banking</div>
-                    </div>
-                  </label>
                 </div>
               </div>
 
               <button 
                 className="btn btn-primary" 
+                disabled={isProcessingPayment}
                 onClick={() => {
                   if (paymentMethod === 'qris') {
                     if (!customerInfo.name || !customerInfo.address || !customerInfo.phone) {
@@ -841,14 +1008,49 @@ function App() {
                     handleCheckout();
                   }
                 }}
-                style={{ marginTop: '24px', opacity: distanceKm === 0 ? 0.5 : 1, cursor: distanceKm === 0 ? 'not-allowed' : 'pointer' }}
+                style={{ marginTop: '24px', opacity: (distanceKm === 0 || isProcessingPayment) ? 0.5 : 1, cursor: (distanceKm === 0 || isProcessingPayment) ? 'not-allowed' : 'pointer' }}
               >
-                {paymentMethod === 'qris' ? '📱 Lanjut ke Pembayaran QRIS' : 'Kirim Pesanan Sekarang'}
+                {isProcessingPayment
+                  ? '⏳ Memproses Pembayaran...'
+                  : (paymentMethod === 'midtrans'
+                    ? '⚡ Bayar Sekarang (Midtrans)'
+                    : (paymentMethod === 'qris'
+                      ? '📱 Lanjut ke Pembayaran QRIS'
+                      : 'Kirim Pesanan Sekarang'))}
               </button>
             </>
           )}
         </div>
       </div>
+
+      {/* Footer Toko & Kepatuhan Legal (Fase 5) */}
+      <footer style={{ marginTop: '60px', borderTop: '1px solid var(--border)', background: 'var(--card)', padding: '40px 20px', textAlign: 'center' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '26px' }}>🌾</span>
+            <strong style={{ fontSize: '18px', color: 'var(--text-main)', letterSpacing: '0.5px' }}>GARNETAMART YOGYAKARTA</strong>
+          </div>
+          <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '13px', maxWidth: '600px', lineHeight: '1.6' }}>
+            Pusat belanja sembako dan kebutuhan rumah tangga murah, cepat, dan terpercaya untuk warung, UMKM, dan keluarga di D.I. Yogyakarta.
+          </p>
+          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center', fontSize: '13px', fontWeight: 'bold' }}>
+            <button onClick={() => setLegalModalTab('privacy')} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '4px' }}>
+              🛡️ Kebijakan Privasi (UU PDP No. 27/2022)
+            </button>
+            <span style={{ color: 'var(--border)' }}>•</span>
+            <button onClick={() => setLegalModalTab('terms')} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '4px' }}>
+              📜 Syarat & Ketentuan Layanan
+            </button>
+            <span style={{ color: 'var(--border)' }}>•</span>
+            <button onClick={() => setLegalModalTab('contact')} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '4px' }}>
+              🏢 Kontak & Lokasi Toko
+            </button>
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>
+            © {new Date().getFullYear()} GarnetaMart. Seluruh hak cipta dilindungi. Sesuai UU ITE No. 11/2008 & UU PDP No. 27/2022.
+          </div>
+        </div>
+      </footer>
 
       {isOrderHistoryOpen && loggedInCustomer && (
         <OrderHistory
@@ -873,6 +1075,22 @@ function App() {
             setCustomerInfo({ name: customer.name, address: customer.address, phone: customer.phone });
             setIsAuthModalOpen(false);
           }}
+        />
+      )}
+
+      {/* Fase 5: Modal Digital Invoice & Kuitansi Resmi */}
+      {invoiceOrderId && (
+        <DigitalInvoiceModal
+          orderId={invoiceOrderId}
+          onClose={() => setInvoiceOrderId(null)}
+        />
+      )}
+
+      {/* Fase 5: Modal Legal & Kebijakan Privasi UU PDP */}
+      {legalModalTab && (
+        <LegalModal
+          initialTab={legalModalTab}
+          onClose={() => setLegalModalTab(null)}
         />
       )}
     </>

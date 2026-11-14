@@ -5,6 +5,7 @@ import ProductGalleryManager from './ProductGalleryManager';
 import ProductVariantManager from './ProductVariantManager';
 import LiveTrackingModal from './LiveTrackingModal';
 import { printReceiptBluetooth } from './utils/bluetoothPrinter';
+import DigitalInvoiceModal from './DigitalInvoiceModal';
 
 // Helper: bentuk header Authorization dari token admin yang tersimpan di localStorage.
 // Dipakai di semua fetch() yang menghantam endpoint terproteksi verifyAdminToken/verifyStaffToken.
@@ -35,6 +36,7 @@ function Dashboard() {
   const [printOrder, setPrintOrder] = useState(null);
   const [trackingOrderId, setTrackingOrderId] = useState(null);
   const [printingOrderId, setPrintingOrderId] = useState(null);
+  const [invoiceModalOrderId, setInvoiceModalOrderId] = useState(null);
   
   // State untuk Tambah Kurir Baru
   const [newCourierName, setNewCourierName] = useState('');
@@ -70,6 +72,35 @@ function Dashboard() {
   const [showQrisSection, setShowQrisSection] = useState(false);
   const [secretTapCount, setSecretTapCount] = useState(0);
   const secretTapTimer = useRef(null);
+
+  // Fase 4: State Pengaturan Pembayaran & Midtrans
+  const [paymentSettings, setPaymentSettings] = useState({
+    midtrans_enabled: 0,
+    midtrans_client_key: '',
+    midtrans_merchant_id: '',
+    midtrans_server_key: '',
+    midtrans_is_production: 0,
+    qris_manual_enabled: 1,
+    loyalty_point_rate: 100
+  });
+  const [isSavingPayment, setIsSavingPayment] = useState(false);
+  const [showServerKey, setShowServerKey] = useState(false);
+
+  // Fase 4: State Voucher & Promo
+  const [promos, setPromos] = useState([]);
+  const [newPromo, setNewPromo] = useState({
+    code: '',
+    discount_type: 'percent',
+    discount_value: '',
+    min_order: 0,
+    max_discount: '',
+    usage_limit: 100
+  });
+  const [isSubmittingPromo, setIsSubmittingPromo] = useState(false);
+
+  // Fase 4: State Advanced Analytics
+  const [advancedAnalytics, setAdvancedAnalytics] = useState(null);
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
 
   const handleSecretTap = () => {
     const newCount = secretTapCount + 1;
@@ -108,6 +139,9 @@ function Dashboard() {
     fetchProducts();
     fetchCouriers();
     fetchBanners();
+    fetchPaymentSettings();
+    fetchPromos();
+    fetchAdvancedAnalytics();
 
     // Radar pemantau 10 detik
     const interval = setInterval(() => {
@@ -323,6 +357,137 @@ function Dashboard() {
     } finally {
       setPrintingOrderId(null);
     }
+  };
+
+  // Fase 4: Handlers Pengaturan Pembayaran & Midtrans
+  const fetchPaymentSettings = () => {
+    fetch(`${import.meta.env.VITE_API_URL}/api/settings/payment`)
+      .then(res => res.json())
+      .then(result => {
+        if (result.success && result.data) {
+          setPaymentSettings(result.data);
+        }
+      })
+      .catch(err => console.error('Error fetching payment settings:', err));
+  };
+
+  const handleSavePaymentSettings = async (e) => {
+    e.preventDefault();
+    setIsSavingPayment(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/settings/payment`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeader() },
+        body: JSON.stringify(paymentSettings)
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("✅ Pengaturan pembayaran & Midtrans berhasil disimpan!");
+        fetchPaymentSettings();
+      } else {
+        alert("Gagal: " + (data.message || 'Error'));
+      }
+    } catch (err) {
+      alert("Terjadi kesalahan saat menyimpan pengaturan pembayaran.");
+    } finally {
+      setIsSavingPayment(false);
+    }
+  };
+
+  // Fase 4: Handlers Voucher & Promo
+  const fetchPromos = () => {
+    fetch(`${import.meta.env.VITE_API_URL}/api/promo`, { headers: authHeader() })
+      .then(res => res.json())
+      .then(result => {
+        if (result.success && result.data) {
+          setPromos(result.data);
+        }
+      })
+      .catch(err => console.error('Error fetching promos:', err));
+  };
+
+  const handleCreatePromo = async (e) => {
+    e.preventDefault();
+    if (!newPromo.code || !newPromo.discount_value) {
+      return alert("Kode voucher dan nilai diskon wajib diisi!");
+    }
+    setIsSubmittingPromo(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/promo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeader() },
+        body: JSON.stringify(newPromo)
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("✅ Voucher promo baru berhasil dibuat!");
+        setNewPromo({
+          code: '',
+          discount_type: 'percent',
+          discount_value: '',
+          min_order: 0,
+          max_discount: '',
+          usage_limit: 100
+        });
+        fetchPromos();
+      } else {
+        alert("Gagal: " + (data.message || 'Error'));
+      }
+    } catch (err) {
+      alert("Terjadi kesalahan koneksi saat membuat promo.");
+    } finally {
+      setIsSubmittingPromo(false);
+    }
+  };
+
+  const handleTogglePromo = async (id, currentStatus) => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/promo/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeader() },
+        body: JSON.stringify({ is_active: currentStatus ? 0 : 1 })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchPromos();
+      } else {
+        alert("Gagal: " + (data.message || 'Error'));
+      }
+    } catch (err) {
+      alert("Gagal mengubah status promo.");
+    }
+  };
+
+  const handleDeletePromo = async (id) => {
+    if (!window.confirm("Yakin ingin menghapus voucher ini?")) return;
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/promo/${id}`, {
+        method: 'DELETE',
+        headers: authHeader()
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchPromos();
+      } else {
+        alert("Gagal: " + (data.message || 'Error'));
+      }
+    } catch (err) {
+      alert("Gagal menghapus promo.");
+    }
+  };
+
+  // Fase 4: Handlers Advanced Analytics
+  const fetchAdvancedAnalytics = () => {
+    setIsLoadingAnalytics(true);
+    fetch(`${import.meta.env.VITE_API_URL}/api/analytics/advanced`, { headers: authHeader() })
+      .then(res => res.json())
+      .then(result => {
+        if (result.success && result.data) {
+          setAdvancedAnalytics(result.data);
+        }
+      })
+      .catch(err => console.error('Error fetching advanced analytics:', err))
+      .finally(() => setIsLoadingAnalytics(false));
   };
 
   const handleLogout = () => {
@@ -662,36 +827,48 @@ function Dashboard() {
         </div>
 
       {/* Navigasi Tab */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '30px' }}>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '30px', flexWrap: 'wrap' }}>
         <button 
           onClick={() => setActiveTab('orders')}
-          style={{ padding: '12px 24px', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', background: activeTab === 'orders' ? 'var(--primary)' : 'white', color: activeTab === 'orders' ? 'white' : 'var(--dark)', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}
+          style={{ padding: '12px 20px', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', background: activeTab === 'orders' ? 'var(--primary)' : 'white', color: activeTab === 'orders' ? 'white' : 'var(--dark)', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}
         >
-          Pesanan Masuk
+          📦 Pesanan Masuk
         </button>
         {userRole !== 'Kasir' && (
           <>
             <button 
               onClick={() => setActiveTab('products')}
-              style={{ padding: '12px 24px', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', background: activeTab === 'products' ? 'var(--primary)' : 'white', color: activeTab === 'products' ? 'white' : 'var(--dark)', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}
+              style={{ padding: '12px 20px', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', background: activeTab === 'products' ? 'var(--primary)' : 'white', color: activeTab === 'products' ? 'white' : 'var(--dark)', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}
             >
-              Manajemen Katalog
+              🛒 Katalog Produk
             </button>
             <button 
-              onClick={() => setActiveTab('analytics')}
-              style={{ padding: '12px 24px', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', background: activeTab === 'analytics' ? 'var(--primary)' : 'white', color: activeTab === 'analytics' ? 'white' : 'var(--dark)', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}
+              onClick={() => { setActiveTab('analytics'); fetchAdvancedAnalytics(); }}
+              style={{ padding: '12px 20px', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', background: activeTab === 'analytics' ? 'var(--primary)' : 'white', color: activeTab === 'analytics' ? 'white' : 'var(--dark)', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}
             >
-              📊 Analitik Bisnis
+              📊 Analitik & Jam Sibuk
+            </button>
+            <button 
+              onClick={() => { setActiveTab('payment'); fetchPaymentSettings(); }}
+              style={{ padding: '12px 20px', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', background: activeTab === 'payment' ? 'var(--primary)' : 'white', color: activeTab === 'payment' ? 'white' : 'var(--dark)', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}
+            >
+              💳 Pembayaran & Midtrans
+            </button>
+            <button 
+              onClick={() => { setActiveTab('promos'); fetchPromos(); }}
+              style={{ padding: '12px 20px', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', background: activeTab === 'promos' ? 'var(--primary)' : 'white', color: activeTab === 'promos' ? 'white' : 'var(--dark)', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}
+            >
+              🏷️ Voucher Promo
             </button>
             <button 
               onClick={() => setActiveTab('couriers')}
-              style={{ padding: '12px 24px', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', background: activeTab === 'couriers' ? 'var(--primary)' : 'white', color: activeTab === 'couriers' ? 'white' : 'var(--dark)', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}
+              style={{ padding: '12px 20px', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', background: activeTab === 'couriers' ? 'var(--primary)' : 'white', color: activeTab === 'couriers' ? 'white' : 'var(--dark)', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}
             >
               🛵 Manajemen Kurir
             </button>
             <button 
               onClick={() => setActiveTab('settings')}
-              style={{ padding: '12px 24px', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', background: activeTab === 'settings' ? 'var(--primary)' : 'white', color: activeTab === 'settings' ? 'white' : 'var(--dark)', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}
+              style={{ padding: '12px 20px', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', background: activeTab === 'settings' ? 'var(--primary)' : 'white', color: activeTab === 'settings' ? 'white' : 'var(--dark)', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}
             >
               ⚙️ Pengaturan Toko
             </button>
@@ -725,7 +902,27 @@ function Dashboard() {
                       <small style={{ color: 'var(--text-muted)' }}>{order.customer_phone}</small>
                     </td>
                     <td style={{ padding: '16px' }}>{getStatusBadge(order.status)}</td>
-                    <td style={{ padding: '16px', color: 'var(--primary)', fontWeight: 'bold' }}>{formatRp(order.total_amount)}</td>
+                    <td style={{ padding: '16px' }}>
+                      <div style={{ color: 'var(--primary)', fontWeight: 'bold' }}>{formatRp(order.total_amount)}</div>
+                      <div style={{ display: 'flex', gap: '4px', marginTop: '6px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '4px', background: order.payment_method === 'midtrans' ? '#DBEAFE' : order.payment_method === 'qris_manual' ? '#DCFCE7' : '#FEF3C7', color: order.payment_method === 'midtrans' ? '#1E40AF' : order.payment_method === 'qris_manual' ? '#166534' : '#92400E', fontWeight: 'bold' }}>
+                          {order.payment_method === 'midtrans' ? '💳 Midtrans' : order.payment_method === 'qris_manual' ? '📱 QRIS' : '💵 COD'}
+                        </span>
+                        <span style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '4px', background: order.payment_status === 'paid' ? '#DCFCE7' : order.payment_status === 'pending' ? '#FEF3C7' : '#F3F4F6', color: order.payment_status === 'paid' ? '#166534' : order.payment_status === 'pending' ? '#92400E' : '#6B7280', fontWeight: 'bold' }}>
+                          {order.payment_status === 'paid' ? 'Lunas' : order.payment_status === 'pending' ? 'Pending' : 'Unpaid'}
+                        </span>
+                      </div>
+                      {order.discount_amount > 0 && (
+                        <div style={{ fontSize: '11px', color: '#EF4444', marginTop: '2px' }}>
+                          Diskon: -{formatRp(order.discount_amount)}
+                        </div>
+                      )}
+                      {order.points_used > 0 && (
+                        <div style={{ fontSize: '11px', color: '#F59E0B', marginTop: '2px' }}>
+                          Poin: -{formatRp(order.points_used)}
+                        </div>
+                      )}
+                    </td>
                     <td style={{ padding: '16px', textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                       {(order.status === 'Baru' || order.status === 'Menunggu Konfirmasi' || !order.status) && (
                         <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
@@ -779,6 +976,14 @@ function Dashboard() {
                         window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`, '_blank');
                       }} style={{ padding: '6px 12px', background: '#25D366', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
                         💬 Chat WA
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInvoiceModalOrderId(order.id)}
+                        title="Buka / Cetak Invoice Kuitansi Digital Resmi"
+                        style={{ padding: '6px 12px', background: '#6366F1', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
+                      >
+                        🧾 Invoice
                       </button>
                       <button onClick={() => handlePrint(order)} style={{ padding: '6px 12px', background: '#4B5563', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
                         🖨️ Cetak
@@ -845,23 +1050,453 @@ function Dashboard() {
         </div>
       )}
 
-      {/* TAMPILAN TAB ANALITIK BISNIS */}
+      {/* TAMPILAN TAB ANALITIK BISNIS & JAM SIBUK */}
       {activeTab === 'analytics' && (
-        <div style={{ background: 'white', borderRadius: '24px', padding: '30px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}>
-          <h2 style={{ marginBottom: '20px' }}>Grafik Omzet Pendapatan 📈</h2>
-          {orders.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>Belum ada data untuk ditampilkan.</p> : (
-            <div style={{ width: '100%', height: '400px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={processChartData()} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 14 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 14 }} tickFormatter={(value) => `Rp${value/1000}k`} />
-                  <Tooltip cursor={{ fill: '#F3F4F6' }} formatter={(value) => formatRp(value)} labelStyle={{ fontWeight: 'bold', color: '#111827' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }} />
-                  <Bar dataKey="omzet" fill="#3B82F6" radius={[8, 8, 0, 0]} maxBarSize={60} />
-                </BarChart>
-              </ResponsiveContainer>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+          {/* KPI Summary Cards */}
+          {advancedAnalytics?.summary && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+              <div style={{ background: 'white', padding: '20px', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', border: '1px solid var(--border)' }}>
+                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '13px' }}>Total Pesanan</p>
+                <h3 style={{ margin: '8px 0 0 0', fontSize: '26px', color: 'var(--dark)' }}>{advancedAnalytics.summary.total_orders}</h3>
+                <span style={{ fontSize: '12px', color: '#10B981', fontWeight: 'bold' }}>Semua transaksi</span>
+              </div>
+              <div style={{ background: 'white', padding: '20px', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', border: '1px solid var(--border)' }}>
+                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '13px' }}>Omzet Kotor</p>
+                <h3 style={{ margin: '8px 0 0 0', fontSize: '24px', color: 'var(--primary)' }}>{formatRp(advancedAnalytics.summary.gross_revenue)}</h3>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Akumulasi omzet</span>
+              </div>
+              <div style={{ background: 'white', padding: '20px', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', border: '1px solid var(--border)' }}>
+                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '13px' }}>Rata-rata Pesanan (AOV)</p>
+                <h3 style={{ margin: '8px 0 0 0', fontSize: '24px', color: '#8B5CF6' }}>{formatRp(advancedAnalytics.summary.aov)}</h3>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Nilai keranjang belanja</span>
+              </div>
+              <div style={{ background: 'white', padding: '20px', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', border: '1px solid var(--border)' }}>
+                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '13px' }}>Total Diskon Diberikan</p>
+                <h3 style={{ margin: '8px 0 0 0', fontSize: '24px', color: '#EF4444' }}>{formatRp(advancedAnalytics.summary.total_discounts)}</h3>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Voucher & potongan</span>
+              </div>
+              <div style={{ background: 'white', padding: '20px', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', border: '1px solid var(--border)' }}>
+                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '13px' }}>Poin Reward Diberikan</p>
+                <h3 style={{ margin: '8px 0 0 0', fontSize: '24px', color: '#F59E0B' }}>{advancedAnalytics.summary.total_points_given}</h3>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Loyalty points</span>
+              </div>
             </div>
           )}
+
+          {/* Grafik Omzet Harian */}
+          <div style={{ background: 'white', borderRadius: '24px', padding: '30px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}>
+            <h2 style={{ marginBottom: '20px' }}>Grafik Omzet Harian 📈</h2>
+            {orders.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>Belum ada data untuk ditampilkan.</p> : (
+              <div style={{ width: '100%', height: '320px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={processChartData()} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                    <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 13 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 13 }} tickFormatter={(value) => `Rp${value/1000}k`} />
+                    <Tooltip cursor={{ fill: '#F3F4F6' }} formatter={(value) => formatRp(value)} labelStyle={{ fontWeight: 'bold', color: '#111827' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }} />
+                    <Bar dataKey="omzet" fill="#3B82F6" radius={[8, 8, 0, 0]} maxBarSize={50} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          {/* Grafik Jam Sibuk (Peak Hours) & Split Metode Pembayaran */}
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
+            {/* Jam Sibuk (Hourly Peak) */}
+            <div style={{ background: 'white', borderRadius: '24px', padding: '30px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}>
+              <h3 style={{ margin: '0 0 8px 0', color: 'var(--dark)' }}>⏰ Jam Sibuk Toko (Hourly Peak)</h3>
+              <p style={{ margin: '0 0 20px 0', color: 'var(--text-muted)', fontSize: '13px' }}>
+                Distribusi waktu pesanan masuk dalam 24 jam untuk optimasi shift kurir dan packing.
+              </p>
+              <div style={{ width: '100%', height: '260px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={advancedAnalytics?.hourly_peak || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                    <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 11 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 11 }} allowDecimals={false} />
+                    <Tooltip cursor={{ fill: '#FEF3C7' }} formatter={(val) => [`${val} Pesanan`, 'Pesanan Masuk']} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }} />
+                    <Bar dataKey="orders_count" fill="#F59E0B" radius={[6, 6, 0, 0]} maxBarSize={24} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Metode Pembayaran Breakdown */}
+            <div style={{ background: 'white', borderRadius: '24px', padding: '30px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}>
+              <h3 style={{ margin: '0 0 8px 0', color: 'var(--dark)' }}>💳 Metode Pembayaran</h3>
+              <p style={{ margin: '0 0 20px 0', color: 'var(--text-muted)', fontSize: '13px' }}>
+                Pilihan cara bayar pelanggan.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {(!advancedAnalytics?.payment_breakdown || advancedAnalytics.payment_breakdown.length === 0) ? (
+                  <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Belum ada data pembayaran.</p>
+                ) : (
+                  advancedAnalytics.payment_breakdown.map((pb, idx) => (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#F9FAFB', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                      <div>
+                        <span style={{ fontWeight: 'bold', fontSize: '14px' }}>
+                          {pb.payment_method === 'midtrans' ? '💳 Midtrans' : pb.payment_method === 'qris_manual' ? '📱 QRIS Manual' : pb.payment_method === 'cod' ? '💵 COD' : pb.payment_method}
+                        </span>
+                        <small style={{ display: 'block', color: 'var(--text-muted)' }}>{formatRp(pb.total_revenue || 0)}</small>
+                      </div>
+                      <span style={{ fontSize: '15px', fontWeight: 'bold', color: 'var(--primary)' }}>
+                        {pb.count} pesanan
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Top 10 Produk Terlaris */}
+          <div style={{ background: 'white', borderRadius: '24px', padding: '30px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}>
+            <h3 style={{ margin: '0 0 16px 0', color: 'var(--dark)' }}>🏆 10 Produk Terlaris (Berdasarkan Omzet)</h3>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--border)', color: 'var(--text-muted)', fontSize: '13px' }}>
+                  <th style={{ padding: '12px' }}>Peringkat</th>
+                  <th style={{ padding: '12px' }}>Nama Produk</th>
+                  <th style={{ padding: '12px' }}>Terjual</th>
+                  <th style={{ padding: '12px', textAlign: 'right' }}>Total Omzet Produk</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(!advancedAnalytics?.top_products || advancedAnalytics.top_products.length === 0) ? (
+                  <tr><td colSpan="4" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>Belum ada data produk terjual.</td></tr>
+                ) : (
+                  advancedAnalytics.top_products.map((tp, idx) => (
+                    <tr key={tp.product_id} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '12px', fontWeight: 'bold' }}>
+                        {idx === 0 ? '🥇 #1' : idx === 1 ? '🥈 #2' : idx === 2 ? '🥉 #3' : `#${idx + 1}`}
+                      </td>
+                      <td style={{ padding: '12px', fontWeight: '600' }}>{tp.product_name}</td>
+                      <td style={{ padding: '12px', color: '#10B981', fontWeight: 'bold' }}>{tp.total_qty_sold} pcs</td>
+                      <td style={{ padding: '12px', textAlign: 'right', fontWeight: 'bold', color: 'var(--primary)' }}>{formatRp(tp.total_revenue)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAMPILAN TAB PEMBAYARAN & MIDTRANS */}
+      {activeTab === 'payment' && (
+        <div style={{ background: 'white', borderRadius: '24px', padding: '30px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}>
+          <div style={{ marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
+            <h2 style={{ margin: 0, color: 'var(--dark)' }}>💳 Pengaturan Gateway Pembayaran & Midtrans</h2>
+            <p style={{ margin: '6px 0 0 0', color: 'var(--text-muted)', fontSize: '14px' }}>
+              Kelola saklar ON/OFF Midtrans Payment Gateway dan QRIS Toko Bebas MDR sesuai kebutuhan arus kas.
+            </p>
+          </div>
+
+          <form onSubmit={handleSavePaymentSettings} style={{ maxWidth: '800px' }}>
+            {/* Saklar Midtrans Gateway */}
+            <div style={{ background: paymentSettings.midtrans_enabled ? '#EFF6FF' : '#F9FAFB', border: `2px solid ${paymentSettings.midtrans_enabled ? '#3B82F6' : '#E5E7EB'}`, borderRadius: '16px', padding: '24px', marginBottom: '24px', transition: 'all 0.3s' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '24px' }}>⚡</span>
+                    <h3 style={{ margin: 0, color: paymentSettings.midtrans_enabled ? '#1E40AF' : '#374151' }}>
+                      Midtrans Payment Gateway (Gopay, ShopeePay, VA Bank, QRIS Otomatis)
+                    </h3>
+                  </div>
+                  <p style={{ margin: '8px 0 0 0', color: paymentSettings.midtrans_enabled ? '#1D4ED8' : '#6B7280', fontSize: '13px', lineHeight: '1.5' }}>
+                    {paymentSettings.midtrans_enabled 
+                      ? '🟢 STATUS AKTIF: Kasir menampilkan opsi Midtrans Snap. Pembayaran otomatis diverifikasi secara real-time lewat webhook.'
+                      : '⚪ STATUS NONAKTIF: Midtrans disembunyikan dari kasir pelanggan. Menghemat MDR, transaksi dialihkan ke QRIS manual & COD.'}
+                  </p>
+                </div>
+                <label style={{ position: 'relative', display: 'inline-block', width: '56px', height: '30px', flexShrink: 0, cursor: 'pointer' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={paymentSettings.midtrans_enabled === 1 || paymentSettings.midtrans_enabled === true}
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, midtrans_enabled: e.target.checked ? 1 : 0 })}
+                    style={{ opacity: 0, width: 0, height: 0 }}
+                  />
+                  <span style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: paymentSettings.midtrans_enabled ? '#2563EB' : '#D1D5DB', transition: '.3s', borderRadius: '30px' }}>
+                    <span style={{ position: 'absolute', height: '22px', width: '22px', left: paymentSettings.midtrans_enabled ? '28px' : '4px', bottom: '4px', backgroundColor: 'white', transition: '.3s', borderRadius: '50%', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }} />
+                  </span>
+                </label>
+              </div>
+
+              {/* Form Input Kredensial Midtrans */}
+              <div style={{ marginTop: '20px', borderTop: '1px solid ' + (paymentSettings.midtrans_enabled ? '#BFDBFE' : '#E5E7EB'), paddingTop: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontWeight: 'bold', fontSize: '13px', marginBottom: '6px' }}>Merchant ID</label>
+                    <input 
+                      type="text" 
+                      value={paymentSettings.midtrans_merchant_id || ''} 
+                      onChange={(e) => setPaymentSettings({ ...paymentSettings, midtrans_merchant_id: e.target.value })}
+                      placeholder="Contoh: M817995214"
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #D1D5DB', fontSize: '14px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontWeight: 'bold', fontSize: '13px', marginBottom: '6px' }}>Mode Lingkungan</label>
+                    <select 
+                      value={paymentSettings.midtrans_is_production ? 'production' : 'sandbox'}
+                      onChange={(e) => setPaymentSettings({ ...paymentSettings, midtrans_is_production: e.target.value === 'production' ? 1 : 0 })}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #D1D5DB', fontSize: '14px', background: 'white' }}
+                    >
+                      <option value="production">🚀 Production (Live / Transaksi Riil)</option>
+                      <option value="sandbox">🧪 Sandbox (Testing / Simulasi)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontWeight: 'bold', fontSize: '13px', marginBottom: '6px' }}>Client Key (Frontend Public)</label>
+                  <input 
+                    type="text" 
+                    value={paymentSettings.midtrans_client_key || ''} 
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, midtrans_client_key: e.target.value })}
+                    placeholder="Contoh: Mid-client-BaEsc6bdboUcT4YZ"
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #D1D5DB', fontSize: '14px', fontFamily: 'monospace' }}
+                  />
+                </div>
+
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <label style={{ fontWeight: 'bold', fontSize: '13px' }}>Server Key (Backend Private)</label>
+                    <button 
+                      type="button" 
+                      onClick={() => setShowServerKey(!showServerKey)}
+                      style={{ background: 'none', border: 'none', color: '#2563EB', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                    >
+                      {showServerKey ? '🙈 Sembunyikan' : '👁️ Tampilkan'}
+                    </button>
+                  </div>
+                  <input 
+                    type={showServerKey ? 'text' : 'password'} 
+                    value={paymentSettings.midtrans_server_key || ''} 
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, midtrans_server_key: e.target.value })}
+                    placeholder="Contoh: Mid-server-xxxxxxxxxxxxxxxx"
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #D1D5DB', fontSize: '14px', fontFamily: 'monospace' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Saklar QRIS Toko Manual */}
+            <div style={{ background: '#F0FDF4', border: '2px solid #BBF7D0', borderRadius: '16px', padding: '24px', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '24px' }}>📱</span>
+                    <h3 style={{ margin: 0, color: '#166534' }}>QRIS Manual Toko (0% MDR Potongan)</h3>
+                  </div>
+                  <p style={{ margin: '8px 0 0 0', color: '#15803D', fontSize: '13px', lineHeight: '1.5' }}>
+                    Pelanggan scan barcode QRIS statis GarnetaMart lalu konfirmasi struk pembayaran via WhatsApp. Bebas biaya gateway!
+                  </p>
+                </div>
+                <label style={{ position: 'relative', display: 'inline-block', width: '56px', height: '30px', flexShrink: 0, cursor: 'pointer' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={paymentSettings.qris_manual_enabled === 1 || paymentSettings.qris_manual_enabled === true}
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, qris_manual_enabled: e.target.checked ? 1 : 0 })}
+                    style={{ opacity: 0, width: 0, height: 0 }}
+                  />
+                  <span style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: paymentSettings.qris_manual_enabled ? '#10B981' : '#D1D5DB', transition: '.3s', borderRadius: '30px' }}>
+                    <span style={{ position: 'absolute', height: '22px', width: '22px', left: paymentSettings.qris_manual_enabled ? '28px' : '4px', bottom: '4px', backgroundColor: 'white', transition: '.3s', borderRadius: '50%', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }} />
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {/* Pengaturan Loyalty Points */}
+            <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '16px', padding: '24px', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                <span style={{ fontSize: '24px' }}>🎁</span>
+                <h3 style={{ margin: 0, color: '#92400E' }}>Program Loyalitas & Poin Pelanggan</h3>
+              </div>
+              <p style={{ margin: '0 0 16px 0', color: '#B45309', fontSize: '13px' }}>
+                Pelanggan mendapatkan 1 koin reward tiap kelipatan nominal belanja berikut. (1 Poin = Potongan Rp 1 saat kasir checkout).
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '14px', fontWeight: 'bold' }}>1 Poin per Belanja Rp</span>
+                <input 
+                  type="number" 
+                  min="10"
+                  value={paymentSettings.loyalty_point_rate || 100}
+                  onChange={(e) => setPaymentSettings({ ...paymentSettings, loyalty_point_rate: parseInt(e.target.value) || 100 })}
+                  style={{ width: '120px', padding: '8px 12px', borderRadius: '8px', border: '1px solid #D1D5DB', fontWeight: 'bold' }}
+                />
+                <span style={{ fontSize: '13px', color: '#6B7280' }}>(Default: Rp 100 belanja = 1 Poin)</span>
+              </div>
+            </div>
+
+            <button 
+              type="submit" 
+              disabled={isSavingPayment}
+              style={{ padding: '14px 28px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(37,99,235,0.2)' }}
+            >
+              {isSavingPayment ? '⏳ Menyimpan...' : '💾 Simpan Pengaturan Pembayaran'}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* TAMPILAN TAB VOUCHER & PROMO */}
+      {activeTab === 'promos' && (
+        <div style={{ background: 'white', borderRadius: '24px', padding: '30px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}>
+          <div style={{ marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
+            <h2 style={{ margin: 0, color: 'var(--dark)' }}>🏷️ Manajemen Voucher Promo & Diskon</h2>
+            <p style={{ margin: '6px 0 0 0', color: 'var(--text-muted)', fontSize: '14px' }}>
+              Rancang kupon diskon persentase atau nominal langsung untuk memicu pembelian pelanggan baru & loyal.
+            </p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px', alignItems: 'flex-start' }}>
+            {/* Form Buat Voucher Baru */}
+            <form onSubmit={handleCreatePromo} style={{ background: '#F9FAFB', border: '1px solid var(--border)', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <h3 style={{ margin: 0, fontSize: '16px', color: 'var(--dark)' }}>➕ Terbitkan Voucher Baru</h3>
+              
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Kode Kupon (Kapital)</label>
+                <input 
+                  required 
+                  type="text" 
+                  placeholder="Misal: DISKON10, HEMAT20K" 
+                  value={newPromo.code} 
+                  onChange={(e) => setNewPromo({ ...newPromo, code: e.target.value.toUpperCase() })} 
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #D1D5DB', fontWeight: 'bold', letterSpacing: '1px' }} 
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Tipe Diskon</label>
+                  <select 
+                    value={newPromo.discount_type} 
+                    onChange={(e) => setNewPromo({ ...newPromo, discount_type: e.target.value })}
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #D1D5DB', background: 'white' }}
+                  >
+                    <option value="percent">Persentase (%)</option>
+                    <option value="fixed">Nominal Tetap (Rp)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>
+                    Nilai {newPromo.discount_type === 'percent' ? '(%)' : '(Rp)'}
+                  </label>
+                  <input 
+                    required 
+                    type="number" 
+                    placeholder={newPromo.discount_type === 'percent' ? '10' : '15000'} 
+                    value={newPromo.discount_value} 
+                    onChange={(e) => setNewPromo({ ...newPromo, discount_value: e.target.value })} 
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #D1D5DB' }} 
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Min Belanja (Rp)</label>
+                  <input 
+                    type="number" 
+                    placeholder="0" 
+                    value={newPromo.min_order} 
+                    onChange={(e) => setNewPromo({ ...newPromo, min_order: e.target.value })} 
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #D1D5DB' }} 
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Maks Potongan (Rp)</label>
+                  <input 
+                    type="number" 
+                    placeholder="Kosongkan jika bebas" 
+                    value={newPromo.max_discount} 
+                    onChange={(e) => setNewPromo({ ...newPromo, max_discount: e.target.value })} 
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #D1D5DB' }} 
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Batas Kuota Pemakaian</label>
+                <input 
+                  type="number" 
+                  placeholder="100" 
+                  value={newPromo.usage_limit} 
+                  onChange={(e) => setNewPromo({ ...newPromo, usage_limit: e.target.value })} 
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #D1D5DB' }} 
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={isSubmittingPromo} 
+                style={{ padding: '12px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', marginTop: '6px' }}
+              >
+                {isSubmittingPromo ? 'Menyimpan...' : '➕ Terbitkan Voucher'}
+              </button>
+            </form>
+
+            {/* Tabel Daftar Voucher */}
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid var(--border)', color: 'var(--text-muted)' }}>
+                    <th style={{ padding: '12px' }}>Kode</th>
+                    <th style={{ padding: '12px' }}>Diskon</th>
+                    <th style={{ padding: '12px' }}>Min Belanja</th>
+                    <th style={{ padding: '12px' }}>Kuota</th>
+                    <th style={{ padding: '12px' }}>Status</th>
+                    <th style={{ padding: '12px', textAlign: 'right' }}>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {promos.length === 0 ? (
+                    <tr><td colSpan="6" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>Belum ada voucher promo.</td></tr>
+                  ) : (
+                    promos.map(p => (
+                      <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '12px' }}>
+                          <span style={{ padding: '4px 10px', background: '#FEF3C7', color: '#B45309', borderRadius: '6px', fontWeight: 'bold', fontFamily: 'monospace', fontSize: '13px' }}>
+                            {p.code}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px', fontWeight: 'bold', color: 'var(--primary)' }}>
+                          {p.discount_type === 'percent' ? `${p.discount_value}%` : formatRp(p.discount_value)}
+                          {p.max_discount ? <small style={{ display: 'block', color: 'var(--text-muted)', fontWeight: 'normal' }}>Maks {formatRp(p.max_discount)}</small> : null}
+                        </td>
+                        <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{formatRp(p.min_order || 0)}</td>
+                        <td style={{ padding: '12px' }}>
+                          <span style={{ fontWeight: 'bold' }}>{p.used_count || 0}</span> / {p.usage_limit || '∞'}
+                        </td>
+                        <td style={{ padding: '12px' }}>
+                          <span style={{ padding: '4px 8px', borderRadius: '99px', fontSize: '12px', fontWeight: 'bold', background: p.is_active ? '#BBF7D0' : '#FECACA', color: p.is_active ? '#166534' : '#991B1B' }}>
+                            {p.is_active ? 'Aktif' : 'Nonaktif'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'right' }}>
+                          <button 
+                            onClick={() => handleTogglePromo(p.id, p.is_active)}
+                            style={{ padding: '4px 8px', marginRight: '6px', background: '#F3F4F6', border: '1px solid #D1D5DB', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' }}
+                          >
+                            {p.is_active ? 'Matikan' : 'Aktifkan'}
+                          </button>
+                          <button 
+                            onClick={() => handleDeletePromo(p.id)}
+                            style={{ padding: '4px 8px', background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#DC2626', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' }}
+                          >
+                            Hapus
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1273,6 +1908,14 @@ function Dashboard() {
         <LiveTrackingModal
           orderId={trackingOrderId}
           onClose={() => setTrackingOrderId(null)}
+        />
+      )}
+
+      {/* Fase 5: Modal Digital Invoice / Kuitansi Resmi Admin */}
+      {invoiceModalOrderId && (
+        <DigitalInvoiceModal
+          orderId={invoiceModalOrderId}
+          onClose={() => setInvoiceModalOrderId(null)}
         />
       )}
     </div>
