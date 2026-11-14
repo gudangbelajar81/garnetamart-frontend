@@ -73,6 +73,26 @@ function App() {
   const [invoiceOrderId, setInvoiceOrderId] = useState(null); // Fase 5: Digital Invoice Modal
   const [legalModalTab, setLegalModalTab] = useState(null); // Fase 5: Privacy Policy & Terms Modal
 
+  const [showPromoPopup, setShowPromoPopup] = useState(false);
+  const [activeBanners, setActiveBanners] = useState([]);
+  const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
+
+  // Status User
+  const [loggedInCustomer, setLoggedInCustomer] = useState(null);
+
+  // State untuk Peta & Ongkir
+  const [deliveryCoords, setDeliveryCoords] = useState(STORE_COORDS);
+  const [distanceKm, setDistanceKm] = useState(0);
+  const [shippingCost, setShippingCost] = useState(0);
+  const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
+  const [transportType, setTransportType] = useState('motor'); // 'motor' atau 'pickup'
+  const [paymentMethod, setPaymentMethod] = useState('cod'); // 'cod' atau 'qris'
+  
+  // State Pencarian Alamat Peta
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
+  const isReverseGeocodingRef = useRef(false);
+  const [showQrisModal, setShowQrisModal] = useState(false);
+
   // Fase 2 #6: OG Meta per Produk. Kalau URL punya query ?produk=ID (datang dari link share WA/FB
   // yang diredirect backend endpoint /produk/:id), otomatis buka modal detail produk itu.
   useEffect(() => {
@@ -121,26 +141,6 @@ function App() {
       setUsePoints(false);
     }
   }, [loggedInCustomer]);
-
-  const [showPromoPopup, setShowPromoPopup] = useState(false);
-  const [activeBanners, setActiveBanners] = useState([]);
-  const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
-
-  // Status User
-  const [loggedInCustomer, setLoggedInCustomer] = useState(null);
-
-  // State untuk Peta & Ongkir
-  const [deliveryCoords, setDeliveryCoords] = useState(STORE_COORDS);
-  const [distanceKm, setDistanceKm] = useState(0);
-  const [shippingCost, setShippingCost] = useState(0);
-  const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
-  const [transportType, setTransportType] = useState('motor'); // 'motor' atau 'pickup'
-  const [paymentMethod, setPaymentMethod] = useState('cod'); // 'cod' atau 'qris'
-  
-  // State Pencarian Alamat Peta
-  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
-  const isReverseGeocodingRef = useRef(false);
-  const [showQrisModal, setShowQrisModal] = useState(false);
 
   const smartCategories = [
     { name: 'Semua', icon: '🏪' },
